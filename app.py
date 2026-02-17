@@ -28,6 +28,11 @@ from auth import AuthManager
 from panel_admina import page_panel_admina
 from analiza_faktury import parsuj_fakture, analizuj_fakture, mapuj_na_dane_klienta
 from analiza_profilu import parsuj_profil_mocy, analiza_profilu, mapuj_profil_na_dane
+from kalkulator_profil import (
+    oblicz_rekomendacje_bess_z_profilem,
+    oblicz_rekomendacje_pv_z_profilem,
+    get_bess_soc_data,
+)
 from fonty_b64 import STERLING_BOOK, STERLING_REGULAR, STERLING_MEDIUM
 
 # ============================================================
@@ -905,8 +910,10 @@ def page_dane_klienta():
                           step=10.0, key='moc_przylaczeniowa_kw')
 
         col1, col2 = st.columns(2)
+        if 'grupa_taryfowa' not in st.session_state:
+            st.session_state['grupa_taryfowa'] = 'C22a'
         col1.selectbox('Grupa taryfowa', ['C11', 'C12a', 'C12b', 'C21', 'C22a', 'C22b', 'B21', 'B23'],
-                       key='grupa_taryfowa', index=4)
+                       key='grupa_taryfowa')
         col2.selectbox('OSD', ['Tauron', 'Enea', 'Energa', 'PGE', 'innogy'], key='osd')
 
         st.number_input('Średni rachunek ee (PLN/mies.)', min_value=0.0,
@@ -922,8 +929,10 @@ def page_dane_klienta():
                         step=1.0, key='oplata_mocowa_pln_mwh')
 
         col1, col2 = st.columns(2)
+        if 'kategoria_mocowa' not in st.session_state:
+            st.session_state['kategoria_mocowa'] = 'K3'
         col1.selectbox('Kategoria mocowa', ['K1', 'K2', 'K3', 'K4'],
-                       key='kategoria_mocowa', index=2)
+                       key='kategoria_mocowa')
         col2.selectbox('Typ obecnej umowy', ['FIX', 'RDN', 'MIX'], key='typ_umowy_ee')
 
         st.text_input('Data końca umowy ee', key='data_konca_umowy_ee',
@@ -983,12 +992,31 @@ def page_analiza():
 
     dane = _get_dane()
 
-    # Obliczenia
+    # Obliczenia — z profilem godzinowym lub standardowe
+    profil_obj = st.session_state.get('profil_obiekt')
+    uzyto_profilu = False
+
     rek_ee = oblicz_rekomendacje_ee(dane)
-    rek_pv = oblicz_rekomendacje_pv(dane)
-    rek_bess = oblicz_rekomendacje_bess(dane)
     rek_dsr = oblicz_rekomendacje_dsr(dane)
     rek_kmb = oblicz_rekomendacje_kmb(dane)
+
+    if profil_obj is not None:
+        try:
+            rek_bess = oblicz_rekomendacje_bess_z_profilem(dane, profil_obj)
+            rek_pv = oblicz_rekomendacje_pv_z_profilem(dane, profil_obj)
+            # Zachowaj standardowe do porównania
+            rek_bess_std = oblicz_rekomendacje_bess(dane)
+            rek_pv_std = oblicz_rekomendacje_pv(dane)
+            uzyto_profilu = True
+        except Exception:
+            rek_bess = oblicz_rekomendacje_bess(dane)
+            rek_pv = oblicz_rekomendacje_pv(dane)
+    else:
+        rek_bess = oblicz_rekomendacje_bess(dane)
+        rek_pv = oblicz_rekomendacje_pv(dane)
+
+    if uzyto_profilu:
+        st.success('Kalkulacje oparte na rzeczywistym profilu mocy godzinowej')
 
     st.markdown(
         '<p style="color:#AEB0B1;font-size:0.85rem;margin-bottom:20px;">'
@@ -1145,10 +1173,66 @@ def page_analiza():
             )
             st.metric('Obliczona kategoria', km['kategoria'])
 
-            st.info(
-                'Kalkulacje BESS/PV mogą uwzględniać rzeczywisty profil mocy '
-                '(rozszerzenie w przyszłej wersji).'
-            )
+            if uzyto_profilu:
+                st.success('Profil godzinowy jest uwzględniony w kalkulacjach BESS/PV.')
+            else:
+                st.info(
+                    'Kalkulacje BESS/PV mogą uwzględniać rzeczywisty profil mocy '
+                    '(rozszerzenie w przyszłej wersji).'
+                )
+
+    # --- Profil SOC baterii (przykładowy tydzień) ---
+    if uzyto_profilu:
+        with st.expander('Profil SOC baterii (przykładowy tydzień)'):
+            try:
+                sim_data = get_bess_soc_data(
+                    dane, profil_obj, rek_bess.pojemnosc_kwh, rek_bess.moc_kw,
+                )
+                if sim_data and len(sim_data['profil_soc']) > 168:
+                    # Pokaż tydzień z czerwca (tydzień 23 ~ godziny 3696-3864)
+                    start_h = min(3696, len(sim_data['profil_soc']) - 168)
+                    end_h = start_h + 168
+                    soc_slice = sim_data['profil_soc'][start_h:end_h]
+                    idx_slice = sim_data['profil_soc_index'][start_h:end_h]
+                    df_soc = pd.DataFrame({
+                        'SOC (kWh)': soc_slice,
+                    }, index=idx_slice)
+                    st.line_chart(df_soc)
+                    st.caption(f'Cykle roczne: {sim_data["cykle_roczne"]:.0f}')
+            except Exception:
+                st.caption('Nie udało się wygenerować wykresu SOC.')
+
+    # --- Porównanie: standardowa vs z profilem ---
+    if uzyto_profilu:
+        with st.expander('Porównanie: kalkulacja standardowa vs z profilem'):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown('**Standardowa (flat)**')
+                st.metric('BESS CAPEX', f'{rek_bess_std.capex_pln:,.0f} PLN')
+                st.metric('BESS oszczędność', f'{rek_bess_std.oszczednosc_calkowita_pln:,.0f} PLN/rok')
+                st.metric('BESS okres zwrotu', f'{rek_bess_std.okres_zwrotu_lat:.1f} lat')
+                st.metric('BESS pojemność', f'{rek_bess_std.pojemnosc_kwh:.0f} kWh')
+                if rek_pv_std:
+                    st.metric('PV moc', f'{rek_pv_std.nowa_moc_kwp:.0f} kWp')
+                    st.metric('PV oszczędność', f'{rek_pv_std.oszczednosc_roczna_pln:,.0f} PLN/rok')
+            with col2:
+                st.markdown('**Z profilem godzinowym**')
+                st.metric('BESS CAPEX', f'{rek_bess.capex_pln:,.0f} PLN')
+                st.metric('BESS oszczędność', f'{rek_bess.oszczednosc_calkowita_pln:,.0f} PLN/rok')
+                st.metric('BESS okres zwrotu', f'{rek_bess.okres_zwrotu_lat:.1f} lat')
+                st.metric('BESS pojemność', f'{rek_bess.pojemnosc_kwh:.0f} kWh')
+                if rek_pv:
+                    st.metric('PV moc', f'{rek_pv.nowa_moc_kwp:.0f} kWp')
+                    st.metric('PV oszczędność', f'{rek_pv.oszczednosc_roczna_pln:,.0f} PLN/rok')
+
+            # Delta
+            delta_bess = rek_bess.oszczednosc_calkowita_pln - rek_bess_std.oszczednosc_calkowita_pln
+            if abs(delta_bess) > 1:
+                kierunek = 'wyższa' if delta_bess > 0 else 'niższa'
+                st.info(
+                    f'Różnica BESS: oszczędność z profilu jest o '
+                    f'{abs(delta_bess):,.0f} PLN/rok {kierunek} niż kalkulacja standardowa.'
+                )
 
     # Zapisz wyniki do session_state
     st.session_state['obliczenia_done'] = True
