@@ -24,6 +24,8 @@ from kalkulator_oferta import (
 from generuj_raport import create_report_bytes
 from generuj_formularz_klienta import create_intake_form_bytes
 from baza_cen import BazaCen
+from auth import AuthManager
+from panel_admina import page_panel_admina
 
 # ============================================================
 # CONFIG
@@ -37,9 +39,6 @@ st.set_page_config(
 # ============================================================
 # LOGIN PAGE
 # ============================================================
-LOGIN = 'admin'
-HASLO = 'admin'
-
 if 'zalogowany' not in st.session_state:
     st.session_state['zalogowany'] = False
 
@@ -220,8 +219,12 @@ if not st.session_state['zalogowany']:
         login_input = st.text_input('Login', key='login_input', placeholder='login')
         haslo_input = st.text_input('Password', type='password', key='haslo_input', placeholder='password')
         if st.button('ZALOGUJ', use_container_width=True):
-            if login_input == LOGIN and haslo_input == HASLO:
+            auth = AuthManager()
+            user = auth.authenticate(login_input, haslo_input)
+            if user:
                 st.session_state['zalogowany'] = True
+                st.session_state['username'] = user['username']
+                st.session_state['rola'] = user['rola']
                 st.rerun()
             else:
                 st.error('Nieprawidlowy login lub haslo.')
@@ -291,13 +294,30 @@ st.markdown("""
 # ============================================================
 # NAVIGATION
 # ============================================================
-PAGES = [
-    'Dane klienta',
-    'Analiza & Rekomendacje',
-    'Finansowanie',
-    'Generuj ofertę',
-    'Baza cen',
-]
+_rola = st.session_state.get('rola', 'guest')
+
+if _rola == 'guest':
+    PAGES = [
+        'Dane klienta',
+        'Analiza & Rekomendacje',
+    ]
+elif _rola == 'admin':
+    PAGES = [
+        'Dane klienta',
+        'Analiza & Rekomendacje',
+        'Finansowanie',
+        'Generuj ofertę',
+        'Baza cen',
+        'Panel admina',
+    ]
+else:
+    PAGES = [
+        'Dane klienta',
+        'Analiza & Rekomendacje',
+        'Finansowanie',
+        'Generuj ofertę',
+        'Baza cen',
+    ]
 
 # Logo w sidebarze
 _logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.svg')
@@ -312,6 +332,15 @@ st.sidebar.markdown(
 )
 
 st.sidebar.title('Kalkulator Ofertowy')
+
+# Zalogowany user info + wyloguj
+_username = st.session_state.get('username', '')
+st.sidebar.markdown(f'Zalogowano: **{_username}** ({_rola})')
+if st.sidebar.button('Wyloguj'):
+    for key in ['zalogowany', 'username', 'rola']:
+        st.session_state.pop(key, None)
+    st.rerun()
+
 page = st.sidebar.radio('Nawigacja', PAGES)
 
 # Demo button
@@ -940,13 +969,21 @@ def page_baza_cen():
 # ============================================================
 # ROUTER
 # ============================================================
-if page == PAGES[0]:
+if page == 'Dane klienta':
     page_dane_klienta()
-elif page == PAGES[1]:
+elif page == 'Analiza & Rekomendacje':
     page_analiza()
-elif page == PAGES[2]:
+elif page == 'Finansowanie':
     page_finansowanie()
-elif page == PAGES[3]:
-    page_generuj()
-elif page == PAGES[4]:
-    page_baza_cen()
+elif page == 'Generuj ofertę':
+    if _rola == 'guest':
+        st.warning('Brak uprawnień. Funkcja niedostępna dla roli guest.')
+    else:
+        page_generuj()
+elif page == 'Baza cen':
+    if _rola == 'guest':
+        st.warning('Brak uprawnień. Funkcja niedostępna dla roli guest.')
+    else:
+        page_baza_cen()
+elif page == 'Panel admina':
+    page_panel_admina()

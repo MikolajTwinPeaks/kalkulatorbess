@@ -29,6 +29,13 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, Reference, PieChart
 
+from config import ConfigManager
+
+
+def _cfg() -> ConfigManager:
+    """Zwraca instancję ConfigManager (cache per wywołanie)."""
+    return ConfigManager()
+
 
 # ============================================================
 # DATA MODELS
@@ -146,10 +153,10 @@ class OpcjaFinansowania:
 def oblicz_rekomendacje_ee(dane: DaneKlienta) -> RekomendacjaEE:
     """Rekomendacja produktu energetycznego FIX/RDN/MIX."""
 
-    # Ceny rynkowe 2026
-    cena_fix = 0.58         # PLN/kWh – cena FIX rynkowa 2026
-    cena_rdn_srednia = 0.50 # PLN/kWh – średnia RDN (z potencjałem optymalizacji)
-    cena_mix = 0.54         # 50% FIX + 50% RDN
+    cfg = _cfg()
+    cena_fix = cfg.get('cena_fix')
+    cena_rdn_srednia = cfg.get('cena_rdn_srednia')
+    cena_mix = cfg.get('cena_mix')
 
     obecna_cena = dane.cena_ee_pln_kwh
     zuzycie = dane.roczne_zuzycie_ee_kwh
@@ -200,38 +207,37 @@ def oblicz_rekomendacje_ee(dane: DaneKlienta) -> RekomendacjaEE:
 def oblicz_rekomendacje_pv(dane: DaneKlienta) -> Optional[RekomendacjaPV]:
     """Rekomendacja dodatkowej/nowej instalacji PV."""
 
+    cfg = _cfg()
+
     if dane.powierzchnia_dachu_m2 < 20:
         return None
 
-    # 1 kWp wymaga ok. 5-6 m² dachu
-    max_moc_z_dachu = dane.powierzchnia_dachu_m2 / 5.5
-    # Optymalna moc: pokrycie ~70% rocznego zużycia ee (z uwzględnieniem istniejącej PV)
+    m2_per_kwp = cfg.get('pv_m2_per_kwp')
+    max_moc_z_dachu = dane.powierzchnia_dachu_m2 / m2_per_kwp
     istniejaca_produkcja = dane.roczna_produkcja_pv_kwh if dane.ma_pv else 0
-    potrzebna_produkcja = dane.roczne_zuzycie_ee_kwh * 0.70 - istniejaca_produkcja
+    potrzebna_produkcja = dane.roczne_zuzycie_ee_kwh * cfg.get('pv_pokrycie_zuzycia') - istniejaca_produkcja
 
     if potrzebna_produkcja <= 0:
         return None
 
-    # 1 kWp produkuje ok. 1000-1100 kWh/rok w Polsce
-    potrzebna_moc = potrzebna_produkcja / 1050
+    produkcja_per_kwp = cfg.get('pv_produkcja_kwh_per_kwp')
+    potrzebna_moc = potrzebna_produkcja / produkcja_per_kwp
     nowa_moc = min(potrzebna_moc, max_moc_z_dachu)
-    nowa_moc = max(10, round(nowa_moc / 5) * 5)  # zaokrąglij do 5 kWp
+    nowa_moc = max(10, round(nowa_moc / 5) * 5)
 
-    roczna_produkcja = nowa_moc * 1050
-    capex_pln_kwp = 3800 if nowa_moc < 50 else 3200 if nowa_moc < 200 else 2800
+    roczna_produkcja = nowa_moc * produkcja_per_kwp
+    capex_pln_kwp = cfg.get('pv_capex_maly') if nowa_moc < 50 else cfg.get('pv_capex_sredni') if nowa_moc < 200 else cfg.get('pv_capex_duzy')
     capex = nowa_moc * capex_pln_kwp
 
-    # Autokonsumpcja (bez magazynu): 30-50% zależnie od profilu
     if '24' in dane.godziny_pracy or '3 zmian' in dane.godziny_pracy.lower():
-        autokons = 0.50
+        autokons = cfg.get('pv_autokonsumpcja_24h')
     elif 'sob' in dane.dni_pracy.lower() or '6' in dane.dni_pracy:
-        autokons = 0.40
+        autokons = cfg.get('pv_autokonsumpcja_6dni')
     else:
-        autokons = 0.35
+        autokons = cfg.get('pv_autokonsumpcja_5dni')
 
-    # Oszczędność = autokonsumpcja × cena pełna + reszta × cena net-billing
     cena_pelna = dane.cena_ee_pln_kwh + dane.oplata_dystr_pln_kwh
-    cena_net_billing = dane.cena_ee_pln_kwh * 0.5
+    cena_net_billing = dane.cena_ee_pln_kwh * cfg.get('cena_net_billing_mnoznik')
     oszczednosc = roczna_produkcja * (autokons * cena_pelna + (1 - autokons) * cena_net_billing)
 
     okres_zwrotu = capex / oszczednosc if oszczednosc > 0 else 99
@@ -249,53 +255,46 @@ def oblicz_rekomendacje_pv(dane: DaneKlienta) -> Optional[RekomendacjaPV]:
 def oblicz_rekomendacje_bess(dane: DaneKlienta) -> RekomendacjaBESS:
     """Rekomendacja magazynu energii BESS."""
 
-    # Łączna moc PV (istniejąca + rekomendowana)
+    cfg = _cfg()
+
     moc_pv_total = dane.moc_pv_kwp if dane.ma_pv else 0
 
-    # Nadwyżka PV dziennie
     produkcja_pv = dane.roczna_produkcja_pv_kwh if dane.ma_pv else 0
     autokons = dane.autokonsumpcja_pv_procent / 100 if dane.ma_pv else 0
     nadwyzka_roczna = produkcja_pv * (1 - autokons)
     nadwyzka_dzienna = nadwyzka_roczna / 365
 
-    # Peak shaving target: 30% redukcji mocy szczytowej × 3h
-    peak_target = dane.moc_umowna_kw * 0.30 * 3
+    peak_target = dane.moc_umowna_kw * cfg.get('peak_shaving_redukcja') * cfg.get('peak_shaving_godziny')
+    arbitraz_target = dane.roczne_zuzycie_ee_kwh / 365 * cfg.get('peak_arbitraz_procent')
 
-    # Arbitraż: wystarczająco na 1 pełny cykl
-    arbitraz_target = dane.roczne_zuzycie_ee_kwh / 365 * 0.2  # 20% dziennego zużycia
-
-    # Pojemność = max z trzech celów
-    pojemnosc_bazowa = max(nadwyzka_dzienna, peak_target, arbitraz_target, 50)
-    pojemnosc = max(50, round(pojemnosc_bazowa * 1.25 / 50 + 0.5) * 50)  # +25% degradacja
+    bess_min = cfg.get('bess_min_pojemnosc')
+    pojemnosc_bazowa = max(nadwyzka_dzienna, peak_target, arbitraz_target, bess_min)
+    pojemnosc = max(bess_min, round(pojemnosc_bazowa * cfg.get('bess_degradacja_bufor') / 50 + 0.5) * 50)
     moc = pojemnosc / 2
 
-    # CAPEX
-    koszt_kwh = 2000  # PLN/kWh (2026)
+    koszt_kwh = cfg.get('bess_koszt_kwh')
     capex_bess = pojemnosc * koszt_kwh
-    capex_ems = 30000
-    capex_inst = capex_bess * 0.10
+    capex_ems = cfg.get('bess_ems_koszt')
+    capex_inst = capex_bess * cfg.get('bess_instalacja_procent')
     capex_total = capex_bess + capex_ems + capex_inst
 
-    rte = 0.90
+    rte = cfg.get('bess_rte')
 
-    # 1. Autokonsumpcja PV
     nadwyzka_do_magazynu = min(nadwyzka_roczna, pojemnosc * 365 * rte * 0.5)
     cena_autokons = dane.cena_ee_pln_kwh + dane.oplata_dystr_pln_kwh
-    cena_net_bill = dane.cena_ee_pln_kwh * 0.5
+    cena_net_bill = dane.cena_ee_pln_kwh * cfg.get('cena_net_billing_mnoznik')
     oszcz_autokons = nadwyzka_do_magazynu * (cena_autokons - cena_net_bill)
 
-    # 2. Arbitraż cenowy
-    spread = 0.30  # PLN/kWh
+    spread = cfg.get('bess_spread')
     energia_arbitraz = pojemnosc * rte * 0.5
-    oszcz_arbitraz = energia_arbitraz * spread * 300  # 300 dni efektywnych
+    oszcz_arbitraz = energia_arbitraz * spread * cfg.get('bess_dni_efektywne')
 
-    # 3. Peak shaving
-    zuzycie_szczytu = dane.roczne_zuzycie_ee_kwh * 0.65
-    kat_mn = {'K1': 0.17, 'K2': 0.40, 'K3': 0.70, 'K4': 1.00}
+    zuzycie_szczytu = dane.roczne_zuzycie_ee_kwh * cfg.get('peak_zuzycie_szczytu')
+    kat_mn = cfg.get('peak_kat_mn')
     mn_obecny = kat_mn.get(dane.kategoria_mocowa, 1.0)
     oplata_obecna = zuzycie_szczytu / 1000 * dane.oplata_mocowa_pln_mwh * mn_obecny
 
-    nowa_kat = {'K4': 'K2', 'K3': 'K1', 'K2': 'K1', 'K1': 'K1'}
+    nowa_kat = cfg.get('peak_nowa_kat')
     mn_nowy = kat_mn[nowa_kat[dane.kategoria_mocowa]]
     oplata_nowa = zuzycie_szczytu / 1000 * dane.oplata_mocowa_pln_mwh * mn_nowy
     oszcz_peak = oplata_obecna - oplata_nowa
@@ -318,22 +317,22 @@ def oblicz_rekomendacje_bess(dane: DaneKlienta) -> RekomendacjaBESS:
 def oblicz_rekomendacje_dsr(dane: DaneKlienta) -> RekomendacjaDSR:
     """Rekomendacja DSR (Demand Side Response)."""
 
-    # DSR opłacalny od ~200 kW redukcji
-    potencjal = dane.moc_umowna_kw * 0.15  # 15% mocy umownej
+    cfg = _cfg()
+
+    potencjal = dane.moc_umowna_kw * cfg.get('dsr_procent_mocy')
     potencjal = max(0, round(potencjal / 10) * 10)
 
-    if potencjal < 50:
+    if potencjal < cfg.get('dsr_min_kw'):
         return RekomendacjaDSR(
             potencjal_redukcji_kw=0,
             przychod_roczny_pln=0,
             koszt_wdrozenia_pln=0,
-            uzasadnienie='Potencjał DSR poniżej 50 kW – nieopłacalny dla tego zakładu.',
+            uzasadnienie=f'Potencjał DSR poniżej {cfg.get("dsr_min_kw"):.0f} kW – nieopłacalny dla tego zakładu.',
         )
 
-    # Przychód z DSR: ok. 200-400 PLN/kW/rok (rynek mocy + usługi pomocnicze)
-    przychod_kw_rok = 300  # PLN/kW/rok (konserwatywnie)
+    przychod_kw_rok = cfg.get('dsr_przychod_kw_rok')
     przychod_roczny = potencjal * przychod_kw_rok
-    koszt_wdrozenia = 15000 + potencjal * 50  # system sterowania + integracja
+    koszt_wdrozenia = cfg.get('dsr_koszt_bazowy') + potencjal * cfg.get('dsr_koszt_kw')
 
     return RekomendacjaDSR(
         potencjal_redukcji_kw=potencjal,
@@ -351,25 +350,25 @@ def oblicz_rekomendacje_dsr(dane: DaneKlienta) -> RekomendacjaDSR:
 def oblicz_rekomendacje_kmb(dane: DaneKlienta) -> Optional[RekomendacjaKMB]:
     """Rekomendacja KMB (Kompensacja Mocy Biernej)."""
 
+    cfg = _cfg()
+
     if dane.ma_kmb:
-        return None  # Już ma kompensację
+        return None
 
-    if dane.wspolczynnik_cos_phi >= 0.95:
-        return None  # Nie potrzebuje
+    cos_phi_docelowy = cfg.get('kmb_cos_phi_docelowy')
+    if dane.wspolczynnik_cos_phi >= cos_phi_docelowy:
+        return None
 
-    # Oblicz potrzebną moc bierną
     moc_czynna = dane.moc_umowna_kw
     phi_obecny = math.acos(dane.wspolczynnik_cos_phi)
-    phi_docelowy = math.acos(0.95)
+    phi_docelowy = math.acos(cos_phi_docelowy)
     q_potrzebna = moc_czynna * (math.tan(phi_obecny) - math.tan(phi_docelowy))
     q_potrzebna = max(10, round(q_potrzebna / 5) * 5)
 
-    # CAPEX: ok. 80-150 PLN/kvar dla kompensacji automatycznej
-    capex = q_potrzebna * 120  # PLN
+    capex = q_potrzebna * cfg.get('kmb_capex_kvar')
 
-    # Oszczędność: opłata za moc bierną = ok. 5-15% rachunku dystrybucyjnego
     roczny_koszt_dystr = dane.roczne_zuzycie_ee_kwh * dane.oplata_dystr_pln_kwh
-    oszczednosc = roczny_koszt_dystr * 0.10  # ~10% oszczędności na dystrybucji
+    oszczednosc = roczny_koszt_dystr * cfg.get('kmb_oszczednosc_dystr_procent')
 
     okres_zwrotu = capex / oszczednosc if oszczednosc > 0 else 99
 
@@ -384,11 +383,15 @@ def oblicz_rekomendacje_kmb(dane: DaneKlienta) -> Optional[RekomendacjaKMB]:
 def oblicz_opcje_finansowania(capex_total: float) -> list[OpcjaFinansowania]:
     """Oblicza opcje finansowania dla łącznego CAPEX."""
 
+    cfg = _cfg()
     opcje = []
 
+    amortyzacja_procent = cfg.get('fin_amortyzacja_procent')
+    cit = cfg.get('fin_cit_procent')
+
     # 1. Zakup za gotówkę
-    amortyzacja_roczna = capex_total * 0.10  # 10% rocznie
-    korzysc_cit = amortyzacja_roczna * 0.19  # CIT 19%
+    amortyzacja_roczna = capex_total * amortyzacja_procent
+    korzysc_cit = amortyzacja_roczna * cit
     opcje.append(OpcjaFinansowania(
         nazwa='Zakup za gotówkę',
         opis='Pełna płatność, własność od dnia 1. Amortyzacja 10%/rok (degresywna do 20%).',
@@ -400,15 +403,15 @@ def oblicz_opcje_finansowania(capex_total: float) -> list[OpcjaFinansowania]:
         uwagi='Najszybszy ROI. Pełna amortyzacja degresywna (20% w 1. roku).',
     ))
 
-    # 2. Leasing operacyjny (84 mies.)
-    okres_leasing = 84
-    oprocentowanie_leasing = 0.065  # RRSO ~6.5%
+    # 2. Leasing operacyjny
+    okres_leasing = cfg.get('fin_leasing_okres')
+    oprocentowanie_leasing = cfg.get('fin_leasing_oprocentowanie')
     rata_leasing = capex_total * (oprocentowanie_leasing / 12 * (1 + oprocentowanie_leasing / 12) ** okres_leasing) / ((1 + oprocentowanie_leasing / 12) ** okres_leasing - 1)
-    koszt_leasing = rata_leasing * okres_leasing + capex_total * 0.01  # + wykup 1%
-    korzysc_leasing_op = rata_leasing * 12 * 0.19  # cała rata w KUP × CIT
+    koszt_leasing = rata_leasing * okres_leasing + capex_total * cfg.get('fin_leasing_wykup')
+    korzysc_leasing_op = rata_leasing * 12 * cit
     opcje.append(OpcjaFinansowania(
-        nazwa='Leasing operacyjny (7 lat)',
-        opis=f'Rata: {rata_leasing:,.0f} PLN/mies. netto. Cała rata = KUP. Wykup 1%.',
+        nazwa=f'Leasing operacyjny ({okres_leasing // 12} lat)',
+        opis=f'Rata: {rata_leasing:,.0f} PLN/mies. netto. Cała rata = KUP. Wykup {cfg.get("fin_leasing_wykup")*100:.0f}%.',
         wklad_wlasny_procent=0,
         rata_miesieczna_pln=rata_leasing,
         okres_mies=okres_leasing,
@@ -417,16 +420,15 @@ def oblicz_opcje_finansowania(capex_total: float) -> list[OpcjaFinansowania]:
         uwagi='0% wkładu własnego. Nie obciąża bilansu. mLeasing, PKO Leasing, EFL, BOS Leasing.',
     ))
 
-    # 3. Leasing finansowy (120 mies.)
-    okres_fin = 120
+    # 3. Leasing finansowy
+    okres_fin = cfg.get('fin_leasing_fin_okres')
     rata_fin = capex_total * (oprocentowanie_leasing / 12 * (1 + oprocentowanie_leasing / 12) ** okres_fin) / ((1 + oprocentowanie_leasing / 12) ** okres_fin - 1)
     koszt_fin = rata_fin * okres_fin
-    # Korzyść: amortyzacja + odsetki w KUP
-    korzysc_fin = (amortyzacja_roczna + rata_fin * 12 * 0.35) * 0.19  # ~35% raty to odsetki na początku
+    korzysc_fin = (amortyzacja_roczna + rata_fin * 12 * 0.35) * cit
     opcje.append(OpcjaFinansowania(
-        nazwa='Leasing finansowy (10 lat)',
+        nazwa=f'Leasing finansowy ({okres_fin // 12} lat)',
         opis=f'Rata: {rata_fin:,.0f} PLN/mies. netto. Amortyzacja + odsetki w KUP.',
-        wklad_wlasny_procent=5,
+        wklad_wlasny_procent=cfg.get('fin_leasing_fin_wklad'),
         rata_miesieczna_pln=rata_fin,
         okres_mies=okres_fin,
         koszt_calkowity_pln=koszt_fin,
@@ -435,40 +437,44 @@ def oblicz_opcje_finansowania(capex_total: float) -> list[OpcjaFinansowania]:
     ))
 
     # 4. Kredyt ekologiczny BGK (FENG)
-    premia = 0.50  # 50% kosztów kwalifikowanych (MŚP)
+    premia = cfg.get('fin_bgk_premia')
+    bgk_oproc = cfg.get('fin_bgk_oprocentowanie')
+    bgk_okres = cfg.get('fin_bgk_okres')
     kapital_kredytu = capex_total * (1 - premia)
-    rata_bgk = kapital_kredytu * (0.07 / 12 * (1 + 0.07 / 12) ** 120) / ((1 + 0.07 / 12) ** 120 - 1)
-    koszt_bgk = rata_bgk * 120
+    rata_bgk = kapital_kredytu * (bgk_oproc / 12 * (1 + bgk_oproc / 12) ** bgk_okres) / ((1 + bgk_oproc / 12) ** bgk_okres - 1)
+    koszt_bgk = rata_bgk * bgk_okres
     opcje.append(OpcjaFinansowania(
         nazwa='Kredyt ekologiczny BGK (FENG)',
         opis=f'Premia ekologiczna: {premia*100:.0f}% ({capex_total*premia:,.0f} PLN). Kredyt na resztę.',
         wklad_wlasny_procent=0,
         rata_miesieczna_pln=rata_bgk,
-        okres_mies=120,
+        okres_mies=bgk_okres,
         koszt_calkowity_pln=koszt_bgk,
-        korzysc_podatkowa_roczna_pln=amortyzacja_roczna * 0.19,
-        uwagi=f'Premia 50% dla MŚP (do 80% z bonusami). Wymagany audyt energetyczny i min. 30% redukcji zużycia energii. Nabory BGK.',
+        korzysc_podatkowa_roczna_pln=amortyzacja_roczna * cit,
+        uwagi=f'Premia {premia*100:.0f}% dla MŚP (do 80% z bonusami). Wymagany audyt energetyczny i min. 30% redukcji zużycia energii. Nabory BGK.',
     ))
 
     # 5. ESCO (0 CAPEX)
+    esco_okres = cfg.get('fin_esco_okres')
     opcje.append(OpcjaFinansowania(
         nazwa='Model ESCO (EPC)',
         opis='ESCO finansuje inwestycję. Spłata z gwarantowanych oszczędności (10-15 lat).',
         wklad_wlasny_procent=0,
         rata_miesieczna_pln=0,
-        okres_mies=180,  # 15 lat
-        koszt_calkowity_pln=capex_total * 1.5,  # ESCO pobiera ~50% premii
+        okres_mies=esco_okres,
+        koszt_calkowity_pln=capex_total * cfg.get('fin_esco_mnoznik'),
         korzysc_podatkowa_roczna_pln=0,
         uwagi='Zero CAPEX. Ryzyko po stronie ESCO. Veolia ESCO Polska, ENGIE, Siemens. Dłuższy okres zwrotu.',
     ))
 
     # 6. PPA (on-site)
+    ppa_okres = cfg.get('fin_ppa_okres')
     opcje.append(OpcjaFinansowania(
         nazwa='On-site PPA (tylko PV)',
         opis='Developer buduje PV na terenie klienta. Klient kupuje energię po stałej cenie 10-15 lat.',
         wklad_wlasny_procent=0,
         rata_miesieczna_pln=0,
-        okres_mies=180,
+        okres_mies=ppa_okres,
         koszt_calkowity_pln=0,
         korzysc_podatkowa_roczna_pln=0,
         uwagi='Cena PPA: 280-350 PLN/MWh (15-30% poniżej rynku). Dotyczy tylko PV. Polenergia, R.Power, Columbus.',
