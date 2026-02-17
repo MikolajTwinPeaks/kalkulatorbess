@@ -73,6 +73,42 @@ class BazaCen:
                     komunikat       TEXT
                 );
             """)
+        # Auto-seed z CSV gdy baza pusta (np. Streamlit Cloud)
+        self._seed_from_csv()
+
+    def _seed_from_csv(self):
+        """Importuje dane z dane/ceny_seed.csv jeśli baza jest pusta."""
+        import csv as _csv
+        seed_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'dane', 'ceny_seed.csv'
+        )
+        if not os.path.exists(seed_path):
+            return
+        with self._conn() as conn:
+            count = conn.execute('SELECT COUNT(*) FROM ceny_15min').fetchone()[0]
+            if count > 0:
+                return
+            with open(seed_path, 'r') as f:
+                reader = _csv.DictReader(f)
+                rows = list(reader)
+            if not rows:
+                return
+            conn.executemany("""
+                INSERT OR IGNORE INTO ceny_15min
+                    (timestamp_start, timestamp_end, cena_pln_mwh,
+                     wolumen, rynek, waluta, zrodlo)
+                VALUES
+                    (:timestamp_start, :timestamp_end, :cena_pln_mwh,
+                     :wolumen, :rynek, :waluta, :zrodlo)
+            """, [{
+                'timestamp_start': r['timestamp_start'],
+                'timestamp_end': r['timestamp_end'],
+                'cena_pln_mwh': float(r['cena_pln_mwh']),
+                'wolumen': float(r['wolumen']) if r.get('wolumen') else None,
+                'rynek': r.get('rynek', 'RDB'),
+                'waluta': r.get('waluta', 'PLN'),
+                'zrodlo': r.get('zrodlo', 'seed'),
+            } for r in rows])
 
     # ------------------------------------------------------------------
     # Zapis
