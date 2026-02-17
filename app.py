@@ -254,10 +254,16 @@ st.markdown(_font_css, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
-/* Globalny font */
-html, body, [class*="css"], .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6,
-input, textarea, select, button, label {
+/* Globalny font — wykluczamy ikony */
+html, body, [class*="css"], .stMarkdown, .stText, p, div, h1, h2, h3, h4, h5, h6,
+input, textarea, select, button, label, td, th, li, a {
     font-family: 'Sterling', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+/* Przywróć font ikon */
+[data-testid="stIcon"], svg, .material-icons, [class*="icon"], [class*="Icon"],
+span[data-baseweb], [data-testid="stExpanderToggleIcon"],
+[data-testid="stMarkdownContainer"] span[style*="font-family"] {
+    font-family: inherit !important;
 }
 
 /* Kolory SUN HELP */
