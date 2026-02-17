@@ -118,8 +118,30 @@ def _first_float(pattern: str, text: str, group: int = 1) -> float:
 # PDF TEXT EXTRACTION
 # ============================================================
 
+def _ocr_pdf(pdf_bytes: bytes) -> str:
+    """OCR fallback dla skanowanych PDF — 100% in-memory, offline."""
+    from pdf2image import convert_from_bytes
+    import pytesseract
+
+    images = convert_from_bytes(pdf_bytes)
+    ocr_text = ''
+    for img in images:
+        ocr_text += pytesseract.image_to_string(img, lang='pol') + '\n'
+        img.close()
+    del images
+    return ocr_text
+
+
+# Minimalny próg znaków z pdfplumber, poniżej którego uruchamiamy OCR
+_MIN_TEXT_LEN = 50
+
+
 def _extract_text(pdf_bytes: bytes) -> tuple[str, list]:
-    """Wyciąga tekst i tabele z PDF (100% in-memory)."""
+    """Wyciąga tekst i tabele z PDF (100% in-memory).
+
+    Próbuje pdfplumber (natywny tekst). Jeśli wynik jest zbyt krótki
+    (skan), automatycznie uruchamia OCR (pytesseract) jako fallback.
+    """
     import pdfplumber
 
     full_text = ''
@@ -132,6 +154,14 @@ def _extract_text(pdf_bytes: bytes) -> tuple[str, list]:
             tables = page.extract_tables()
             if tables:
                 all_tables.extend(tables)
+
+    # Fallback OCR dla skanów
+    if len(full_text.strip()) < _MIN_TEXT_LEN:
+        try:
+            full_text = _ocr_pdf(pdf_bytes)
+        except Exception:
+            pass  # jeśli OCR niedostępny, zwróć co mamy
+
     return full_text, all_tables
 
 

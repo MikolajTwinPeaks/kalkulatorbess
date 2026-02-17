@@ -5,3 +5,5 @@ pandas
 selenium
 webdriver-manager
 pdfplumber
+pytesseract
+pdf2image
