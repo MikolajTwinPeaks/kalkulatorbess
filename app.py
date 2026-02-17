@@ -467,38 +467,78 @@ hr {
 
 /* ---------- MOBILE RESPONSIVE ---------- */
 @media (max-width: 768px) {
+    /* Nagłówek strony */
     h1 {
         padding: 14px 18px !important;
         font-size: 1.4rem !important;
+        border-radius: 8px !important;
     }
+    h2 {
+        font-size: 1.1rem !important;
+    }
+
+    /* Metryki */
     [data-testid="stMetric"] {
         padding: 12px 14px;
         margin-bottom: 8px;
     }
     [data-testid="stMetric"] label {
-        font-size: 0.75rem !important;
+        font-size: 0.7rem !important;
     }
     [data-testid="stMetric"] [data-testid="stMetricValue"] {
-        font-size: 1.2rem !important;
+        font-size: 1.1rem !important;
     }
+
+    /* Kolumny Streamlit — na mobile ściskają się,
+       więc zmniejszamy gap i padding */
+    [data-testid="stHorizontalBlock"] {
+        gap: 8px !important;
+    }
+    [data-testid="stColumn"] {
+        min-width: 0 !important;
+    }
+
+    /* Ekspandery */
     [data-testid="stExpander"] summary {
         padding: 12px 14px !important;
         font-size: 0.95rem !important;
     }
+    [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+        padding: 12px 14px !important;
+    }
+
+    /* Przyciski */
     .stButton > button, .stDownloadButton > button {
         width: 100% !important;
         padding: 12px !important;
         font-size: 1rem !important;
     }
-    .stTextInput input, .stNumberInput input {
+
+    /* Inputy — 16px zapobiega zoom na iOS */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
         font-size: 16px !important;
     }
-    .stDataFrame {
+
+    /* Tabele */
+    [data-testid="stDataFrame"] {
         overflow-x: auto !important;
+    }
+
+    /* Taby */
+    .stTabs [data-baseweb="tab-list"] {
+        overflow-x: auto;
+        flex-wrap: nowrap;
     }
     .stTabs [data-baseweb="tab"] {
         padding: 8px 12px !important;
-        font-size: 0.85rem !important;
+        font-size: 0.8rem !important;
+        white-space: nowrap;
+    }
+
+    /* Wykresy — pełna szerokość */
+    .stBarChart, .stLineChart {
+        margin-left: -12px;
+        margin-right: -12px;
     }
 }
 </style>
@@ -962,68 +1002,62 @@ def page_generuj():
         unsafe_allow_html=True,
     )
 
-    # --- 3-column document cards ---
-    col1, col2, col3 = st.columns(3)
+    # --- Document cards — vertical layout (mobile-friendly) ---
+    _doc_card = (
+        '<div style="display:flex;align-items:center;gap:16px;padding:16px 20px;'
+        'background:#f7f6f4;border-radius:10px;margin-bottom:6px;">'
+        '<span style="font-size:2.2rem;font-weight:300;color:#18332F;line-height:1;">{num}</span>'
+        '<div><p style="font-weight:500;color:#18332F;margin:0;">{title}</p>'
+        '<p style="color:#AEB0B1;font-size:0.78rem;margin:2px 0 0 0;">{desc}</p></div></div>'
+    )
 
-    with col1:
-        st.markdown(
-            '<div style="text-align:center;margin-bottom:8px;">'
-            '<span style="font-size:2.8rem;font-weight:300;color:#18332F;">01</span></div>'
-            '<p style="text-align:center;font-weight:500;color:#18332F;margin:4px 0;">Oferta XLSX</p>'
-            '<p style="text-align:center;color:#AEB0B1;font-size:0.78rem;">'
-            '7 arkuszy: podsumowanie, EE, BESS, PV/DSR/KMB, finansowanie, analiza 10-letnia</p>',
-            unsafe_allow_html=True,
+    # 01 — Oferta XLSX
+    st.markdown(_doc_card.format(
+        num='01', title='Oferta XLSX',
+        desc='7 arkuszy: podsumowanie, EE, BESS, PV/DSR/KMB, finansowanie, analiza 10-letnia',
+    ), unsafe_allow_html=True)
+    if st.button('Generuj ofertę', use_container_width=True, key='gen_oferta'):
+        with st.spinner('Generowanie oferty...'):
+            data = generuj_oferte_bytes(dane)
+        st.download_button(
+            label='Pobierz XLSX',
+            data=data,
+            file_name=f'Oferta_{nazwa}.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            use_container_width=True,
         )
-        if st.button('Generuj ofertę', use_container_width=True, key='gen_oferta'):
-            with st.spinner('Generowanie oferty...'):
-                data = generuj_oferte_bytes(dane)
-            st.download_button(
-                label='Pobierz XLSX',
-                data=data,
-                file_name=f'Oferta_{nazwa}.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                use_container_width=True,
-            )
 
-    with col2:
-        st.markdown(
-            '<div style="text-align:center;margin-bottom:8px;">'
-            '<span style="font-size:2.8rem;font-weight:300;color:#18332F;">02</span></div>'
-            '<p style="text-align:center;font-weight:500;color:#18332F;margin:4px 0;">Raport DOCX</p>'
-            '<p style="text-align:center;color:#AEB0B1;font-size:0.78rem;">'
-            'Raport analityczny: PV + BESS dla zakładów produkcyjnych</p>',
-            unsafe_allow_html=True,
+    # 02 — Raport DOCX
+    st.markdown(_doc_card.format(
+        num='02', title='Raport DOCX',
+        desc='Raport analityczny: PV + BESS dla zakładów produkcyjnych',
+    ), unsafe_allow_html=True)
+    if st.button('Generuj raport', use_container_width=True, key='gen_raport'):
+        with st.spinner('Generowanie raportu...'):
+            data = create_report_bytes()
+        st.download_button(
+            label='Pobierz DOCX',
+            data=data,
+            file_name='Raport_PV_BESS_Zaklady_Produkcyjne.docx',
+            mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            use_container_width=True,
         )
-        if st.button('Generuj raport', use_container_width=True, key='gen_raport'):
-            with st.spinner('Generowanie raportu...'):
-                data = create_report_bytes()
-            st.download_button(
-                label='Pobierz DOCX',
-                data=data,
-                file_name='Raport_PV_BESS_Zaklady_Produkcyjne.docx',
-                mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                use_container_width=True,
-            )
 
-    with col3:
-        st.markdown(
-            '<div style="text-align:center;margin-bottom:8px;">'
-            '<span style="font-size:2.8rem;font-weight:300;color:#18332F;">03</span></div>'
-            '<p style="text-align:center;font-weight:500;color:#18332F;margin:4px 0;">Formularz XLSX</p>'
-            '<p style="text-align:center;color:#AEB0B1;font-size:0.78rem;">'
-            'Formularz zbierania danych od klienta z checklistą dokumentów</p>',
-            unsafe_allow_html=True,
+    # 03 — Formularz XLSX
+    st.markdown(_doc_card.format(
+        num='03', title='Formularz XLSX',
+        desc='Formularz zbierania danych od klienta z checklistą dokumentów',
+    ), unsafe_allow_html=True)
+    if st.button('Generuj formularz', use_container_width=True, key='gen_form'):
+        with st.spinner('Generowanie formularza...'):
+            data = create_intake_form_bytes()
+        st.download_button(
+            label='Pobierz XLSX',
+            data=data,
+            file_name='Formularz_Dane_Klienta.xlsx',
+            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            use_container_width=True,
         )
-        if st.button('Generuj formularz', use_container_width=True, key='gen_form'):
-            with st.spinner('Generowanie formularza...'):
-                data = create_intake_form_bytes()
-            st.download_button(
-                label='Pobierz XLSX',
-                data=data,
-                file_name='Formularz_Dane_Klienta.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                use_container_width=True,
-            )
 
 
 # ============================================================
