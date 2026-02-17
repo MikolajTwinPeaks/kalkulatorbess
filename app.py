@@ -26,6 +26,7 @@ from generuj_formularz_klienta import create_intake_form_bytes
 from baza_cen import BazaCen
 from auth import AuthManager
 from panel_admina import page_panel_admina
+from fonty_b64 import STERLING_BOOK, STERLING_REGULAR, STERLING_MEDIUM
 
 # ============================================================
 # CONFIG
@@ -235,28 +236,24 @@ if not st.session_state['zalogowany']:
 # ============================================================
 # RESPONSIVE CSS
 # ============================================================
+# Font Sterling — base64 embedded
+_font_css = (
+    "<style>"
+    "@font-face { font-family: 'Sterling'; "
+    f"src: url('data:font/opentype;base64,{STERLING_BOOK}') format('opentype'); "
+    "font-weight: 300; font-style: normal; } "
+    "@font-face { font-family: 'Sterling'; "
+    f"src: url('data:font/opentype;base64,{STERLING_REGULAR}') format('opentype'); "
+    "font-weight: 400; font-style: normal; } "
+    "@font-face { font-family: 'Sterling'; "
+    f"src: url('data:font/opentype;base64,{STERLING_MEDIUM}') format('opentype'); "
+    "font-weight: 500; font-style: normal; } "
+    "</style>"
+)
+st.markdown(_font_css, unsafe_allow_html=True)
+
 st.markdown("""
 <style>
-/* Font Sterling */
-@font-face {
-    font-family: 'Sterling';
-    src: url('app/static/Sterling-Book.otf') format('opentype');
-    font-weight: 300;
-    font-style: normal;
-}
-@font-face {
-    font-family: 'Sterling';
-    src: url('app/static/Sterling-Regular.otf') format('opentype');
-    font-weight: 400;
-    font-style: normal;
-}
-@font-face {
-    font-family: 'Sterling';
-    src: url('app/static/Sterling-Medium.otf') format('opentype');
-    font-weight: 500;
-    font-style: normal;
-}
-
 /* Globalny font */
 html, body, [class*="css"], .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6,
 input, textarea, select, button, label {
