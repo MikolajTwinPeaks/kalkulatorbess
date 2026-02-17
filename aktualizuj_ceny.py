@@ -77,6 +77,62 @@ def pobierz_i_zapisz(scraper: ScraperTGE, db: BazaCen, data: str,
     return True
 
 
+def _eksportuj_seed_csv(db: BazaCen):
+    """Eksportuje całą bazę cen do dane/ceny_seed.csv (dla Cloud)."""
+    import csv
+    import os as _os
+    base_dir = _os.path.dirname(_os.path.abspath(__file__))
+    dane_dir = _os.path.join(base_dir, 'dane')
+    _os.makedirs(dane_dir, exist_ok=True)
+    seed_path = _os.path.join(dane_dir, 'ceny_seed.csv')
+
+    import sqlite3
+    conn = sqlite3.connect(db.db_path)
+    cur = conn.execute(
+        'SELECT timestamp_start, timestamp_end, cena_pln_mwh, '
+        'wolumen, rynek, waluta, zrodlo FROM ceny_15min ORDER BY timestamp_start'
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    with open(seed_path, 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['timestamp_start', 'timestamp_end', 'cena_pln_mwh',
+                     'wolumen', 'rynek', 'waluta', 'zrodlo'])
+        w.writerows(rows)
+    logger.info("Wyeksportowano %d rekordów do %s", len(rows), seed_path)
+
+
+def _git_push_seed():
+    """Commituje i pushuje zaktualizowany seed CSV do GitHub."""
+    import subprocess
+    import os as _os
+    base_dir = _os.path.dirname(_os.path.abspath(__file__))
+    try:
+        subprocess.run(
+            ['git', 'add', 'dane/ceny_seed.csv'],
+            cwd=base_dir, check=True, capture_output=True,
+        )
+        result = subprocess.run(
+            ['git', 'diff', '--cached', '--quiet'],
+            cwd=base_dir, capture_output=True,
+        )
+        if result.returncode == 0:
+            logger.info("Seed CSV bez zmian — pomijam push")
+            return
+        subprocess.run(
+            ['git', 'commit', '-m', 'Auto-update ceny_seed.csv'],
+            cwd=base_dir, check=True, capture_output=True,
+        )
+        subprocess.run(
+            ['git', 'push'],
+            cwd=base_dir, check=True, capture_output=True, timeout=30,
+        )
+        logger.info("Seed CSV zpushowany do GitHub")
+    except Exception as e:
+        logger.warning("Nie udało się zpushować seed CSV: %s", e)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Pobieranie cen 15-minutowych z TGE RDB'
@@ -134,6 +190,11 @@ def main():
                 sukcesy += 1
             else:
                 bledy += 1
+
+    # Eksport seed CSV + push do GitHub (sync Cloud)
+    if sukcesy > 0:
+        _eksportuj_seed_csv(db)
+        _git_push_seed()
 
     # Podsumowanie
     logger.info("")
