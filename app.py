@@ -23,6 +23,7 @@ from kalkulator_oferta import (
 )
 from generuj_raport import create_report_bytes
 from generuj_formularz_klienta import create_intake_form_bytes
+from baza_cen import BazaCen
 
 # ============================================================
 # CONFIG
@@ -100,6 +101,7 @@ PAGES = [
     'Analiza & Rekomendacje',
     'Finansowanie',
     'Generuj ofertę',
+    'Baza cen',
 ]
 
 # Logo w sidebarze
@@ -543,6 +545,204 @@ def page_generuj():
 
 
 # ============================================================
+# PAGE 5: BAZA CEN
+# ============================================================
+def page_baza_cen():
+    st.header('Baza cen TGE RDB')
+
+    db = BazaCen()
+
+    tab1, tab2, tab3, tab4 = st.tabs([
+        'Ostatnie ceny', 'Wykres historyczny', 'Statystyki', 'Import / Scraping'
+    ])
+
+    # --- Tab 1: Ostatnie ceny ---
+    with tab1:
+        st.subheader('Ostatnie ceny 15-minutowe')
+        n_rec = st.selectbox('Liczba rekordów', [96, 192, 288, 672],
+                             format_func=lambda x: f'{x} ({x // 4}h)')
+        df = db.pobierz_ostatnie(n_rec)
+        if df.empty:
+            st.info('Brak danych w bazie. Użyj zakładki "Import / Scraping" aby dodać ceny.')
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.metric('Rekordów', len(df))
+            col2.metric('Śr. cena', f'{df["cena_pln_mwh"].mean():.2f} PLN/MWh')
+            col3.metric('Śr. cena', f'{df["cena_pln_kwh"].mean():.4f} PLN/kWh')
+
+            st.dataframe(
+                df[['timestamp_start', 'timestamp_end', 'cena_pln_mwh', 'cena_pln_kwh', 'wolumen']].rename(
+                    columns={
+                        'timestamp_start': 'Od',
+                        'timestamp_end': 'Do',
+                        'cena_pln_mwh': 'PLN/MWh',
+                        'cena_pln_kwh': 'PLN/kWh',
+                        'wolumen': 'Wolumen',
+                    }
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    # --- Tab 2: Wykres historyczny ---
+    with tab2:
+        st.subheader('Wykres cen historycznych')
+        col1, col2 = st.columns(2)
+        from datetime import datetime, timedelta
+        default_od = (datetime.now() - timedelta(days=7)).date()
+        default_do = datetime.now().date()
+        data_od = col1.date_input('Od', value=default_od)
+        data_do = col2.date_input('Do', value=default_do)
+
+        data_do_query = (data_do + timedelta(days=1)).strftime('%Y-%m-%d')
+        df_hist = db.pobierz_ceny(
+            data_od.strftime('%Y-%m-%d'), data_do_query
+        )
+
+        if df_hist.empty:
+            st.info('Brak danych dla wybranego zakresu dat.')
+        else:
+            # Wykres liniowy cen
+            st.markdown('#### Ceny 15-minutowe (PLN/MWh)')
+            chart_df = df_hist.set_index('timestamp_start')[['cena_pln_mwh']]
+            chart_df.columns = ['PLN/MWh']
+            st.line_chart(chart_df)
+
+            # Profil godzinowy
+            st.markdown('#### Średni profil godzinowy')
+            profil = db.profil_godzinowy(
+                data_od.strftime('%Y-%m-%d'), data_do_query
+            )
+            if not profil.empty:
+                profil_chart = profil.set_index('godzina')[['srednia_cena_pln_mwh']]
+                profil_chart.columns = ['Śr. PLN/MWh']
+                st.bar_chart(profil_chart)
+
+    # --- Tab 3: Statystyki ---
+    with tab3:
+        st.subheader('Statystyki cenowe')
+        total = db.liczba_rekordow()
+        st.metric('Łączna liczba rekordów w bazie', total)
+
+        if total > 0:
+            st.markdown('---')
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown('**Ostatnie 30 dni**')
+                avg30 = db.srednia_rdb(30)
+                avg30k = db.srednia_rdb_kwh(30)
+                spr30 = db.spread_sredni_kwh(30)
+                if avg30 is not None:
+                    st.metric('Średnia RDB', f'{avg30:.2f} PLN/MWh')
+                    st.metric('Średnia RDB', f'{avg30k:.4f} PLN/kWh')
+                if spr30 is not None:
+                    st.metric('Średni spread dzienny', f'{spr30:.4f} PLN/kWh')
+
+            with col2:
+                st.markdown('**Ostatnie 7 dni**')
+                avg7 = db.srednia_rdb(7)
+                avg7k = db.srednia_rdb_kwh(7)
+                spr7 = db.spread_sredni_kwh(7)
+                if avg7 is not None:
+                    st.metric('Średnia RDB', f'{avg7:.2f} PLN/MWh')
+                    st.metric('Średnia RDB', f'{avg7k:.4f} PLN/kWh')
+                if spr7 is not None:
+                    st.metric('Średni spread dzienny', f'{spr7:.4f} PLN/kWh')
+
+            # Logi scrapera
+            st.markdown('---')
+            st.markdown('**Ostatnie uruchomienia scrapera**')
+            logi = db.pobierz_logi(10)
+            if not logi.empty:
+                st.dataframe(logi, use_container_width=True, hide_index=True)
+            else:
+                st.caption('Brak logów.')
+
+    # --- Tab 4: Import / Scraping ---
+    with tab4:
+        st.subheader('Import danych')
+
+        # Ręczny scraping
+        st.markdown('#### Scraping z TGE')
+        st.caption(
+            'Uruchom scraper, aby pobrać najnowsze ceny z TGE RDB. '
+            'Wymaga zainstalowanego Chrome i selenium.'
+        )
+        scrape_date = st.date_input('Data sesji', value=datetime.now().date(),
+                                    key='scrape_date')
+        if st.button('Uruchom scraper', use_container_width=True):
+            with st.spinner('Pobieram ceny z TGE...'):
+                try:
+                    from scraper_tge import ScraperTGE
+                    with ScraperTGE(headless=True) as scraper:
+                        ceny = scraper.pobierz_ceny_rdb(scrape_date.strftime('%Y-%m-%d'))
+
+                    if ceny:
+                        rekordy = [{
+                            'timestamp_start': c.timestamp_start,
+                            'timestamp_end': c.timestamp_end,
+                            'cena_pln_mwh': c.cena_pln_mwh,
+                            'wolumen': c.wolumen_mwh,
+                            'rynek': 'RDB',
+                            'waluta': 'PLN',
+                            'zrodlo': 'TGE_scraper',
+                        } for c in ceny]
+                        n = db.zapisz_ceny(rekordy)
+                        db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
+                                      n, 'OK', f'Scraping z UI: {n} rekordów')
+                        st.success(f'Pobrano i zapisano {n} rekordów cenowych.')
+                    else:
+                        db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
+                                      0, 'EMPTY', 'Scraping z UI: brak danych')
+                        st.warning('Scraper nie znalazł danych cenowych na stronie TGE.')
+                except ImportError:
+                    st.error('Brak modułu selenium. Zainstaluj: pip install selenium webdriver-manager')
+                except Exception as e:
+                    db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
+                                  0, 'ERROR', str(e))
+                    st.error(f'Błąd scrapera: {e}')
+
+        st.divider()
+
+        # Upload pliku
+        st.markdown('#### Import z pliku CSV / XLSX')
+        st.caption(
+            'Wymagane kolumny: timestamp_start, timestamp_end, cena_pln_mwh. '
+            'Opcjonalne: wolumen, waluta, zrodlo.'
+        )
+        uploaded = st.file_uploader('Wybierz plik', type=['csv', 'xlsx', 'xls'])
+        if uploaded is not None:
+            if st.button('Importuj plik', use_container_width=True):
+                with st.spinner('Importuję...'):
+                    try:
+                        if uploaded.name.endswith('.csv'):
+                            import io
+                            tmp_df = pd.read_csv(io.BytesIO(uploaded.read()))
+                            uploaded.seek(0)
+                            # Zapis tymczasowy
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as f:
+                                f.write(uploaded.read())
+                                tmp_path = f.name
+                            n = db.importuj_csv(tmp_path)
+                            os.unlink(tmp_path)
+                        else:
+                            import tempfile
+                            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as f:
+                                f.write(uploaded.read())
+                                tmp_path = f.name
+                            n = db.importuj_xlsx(tmp_path)
+                            os.unlink(tmp_path)
+
+                        db.zapisz_log('RDB', '-', n, 'OK',
+                                      f'Import z pliku {uploaded.name}: {n} rekordów')
+                        st.success(f'Zaimportowano {n} rekordów z pliku {uploaded.name}.')
+                    except Exception as e:
+                        st.error(f'Błąd importu: {e}')
+
+
+# ============================================================
 # ROUTER
 # ============================================================
 if page == PAGES[0]:
@@ -553,3 +753,5 @@ elif page == PAGES[2]:
     page_finansowanie()
 elif page == PAGES[3]:
     page_generuj()
+elif page == PAGES[4]:
+    page_baza_cen()
