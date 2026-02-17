@@ -50,7 +50,7 @@ if not st.session_state['zalogowany']:
     .stApp > header { display: none; }
     .block-container { padding-top: 0 !important; max-width: 100% !important; }
     .stApp {
-        background: #000 !important;
+        background: #18332F !important;
         overflow: hidden;
     }
 
@@ -68,24 +68,24 @@ if not st.session_state['zalogowany']:
         top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         z-index: 10;
-        background: rgba(0, 10, 0, 0.85);
-        border: 1px solid #0f0;
+        background: rgba(24, 51, 47, 0.92);
+        border: 1px solid #FF6A39;
         border-radius: 12px;
         padding: 40px 36px 32px 36px;
         width: 360px;
-        box-shadow: 0 0 40px rgba(0, 255, 0, 0.15), 0 0 80px rgba(0, 255, 0, 0.05);
+        box-shadow: 0 0 40px rgba(255, 106, 57, 0.15), 0 0 80px rgba(255, 106, 57, 0.05);
         text-align: center;
     }
     .login-box h2 {
-        color: #0f0;
-        font-family: 'Courier New', monospace;
+        color: #FF6A39;
+        font-family: 'Sterling', 'Segoe UI', sans-serif;
         margin-bottom: 8px;
         font-size: 1.6rem;
-        text-shadow: 0 0 10px #0f0;
+        text-shadow: 0 0 10px rgba(255, 106, 57, 0.3);
     }
     .login-box .subtitle {
-        color: #0a0;
-        font-family: 'Courier New', monospace;
+        color: #BEBEBE;
+        font-family: 'Sterling', 'Segoe UI', sans-serif;
         font-size: 0.8rem;
         margin-bottom: 24px;
         opacity: 0.7;
@@ -93,30 +93,30 @@ if not st.session_state['zalogowany']:
 
     /* Streamlit inputs styling for login */
     .login-container input {
-        background: rgba(0, 20, 0, 0.9) !important;
-        border: 1px solid #0a0 !important;
-        color: #0f0 !important;
-        font-family: 'Courier New', monospace !important;
+        background: rgba(24, 51, 47, 0.9) !important;
+        border: 1px solid #FF6A39 !important;
+        color: white !important;
+        font-family: 'Sterling', 'Segoe UI', sans-serif !important;
     }
     .login-container input:focus {
-        border-color: #0f0 !important;
-        box-shadow: 0 0 8px rgba(0, 255, 0, 0.3) !important;
+        border-color: #FF6A39 !important;
+        box-shadow: 0 0 8px rgba(255, 106, 57, 0.3) !important;
     }
     .login-container label {
-        color: #0a0 !important;
-        font-family: 'Courier New', monospace !important;
+        color: #BEBEBE !important;
+        font-family: 'Sterling', 'Segoe UI', sans-serif !important;
     }
     .login-container button {
-        background-color: #0a0 !important;
-        color: #000 !important;
-        font-family: 'Courier New', monospace !important;
+        background-color: #FF6A39 !important;
+        color: white !important;
+        font-family: 'Sterling', 'Segoe UI', sans-serif !important;
         font-weight: bold !important;
         border: none !important;
         width: 100% !important;
     }
     .login-container button:hover {
-        background-color: #0f0 !important;
-        box-shadow: 0 0 15px rgba(0, 255, 0, 0.5) !important;
+        background-color: #e55a2b !important;
+        box-shadow: 0 0 15px rgba(255, 106, 57, 0.5) !important;
     }
     .login-container .stAlert {
         background: rgba(255, 0, 0, 0.15) !important;
@@ -157,7 +157,7 @@ if not st.session_state['zalogowany']:
         const chars = '0123456789';
 
         function draw() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+            ctx.fillStyle = 'rgba(24, 51, 47, 0.06)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.font = fontSize + 'px Courier New';
@@ -167,8 +167,8 @@ if not st.session_state['zalogowany']:
                 const ch = chars[Math.floor(Math.random() * chars.length)];
 
                 // Head character — bright green
-                const brightness = 180 + Math.floor(Math.random() * 75);
-                ctx.fillStyle = 'rgb(0, ' + brightness + ', 0)';
+                const r = 255, g = 106 + Math.floor(Math.random() * 40), b = 57;
+                ctx.fillStyle = 'rgba(' + r + ', ' + g + ', ' + b + ', 0.8)';
 
                 // Occasional bright flash
                 if (Math.random() > 0.97) {
@@ -208,10 +208,10 @@ if not st.session_state['zalogowany']:
     with col_c:
         st.markdown("""
         <div style="text-align:center; margin-top: 28vh;">
-            <h2 style="color:#0f0; font-family:'Courier New',monospace; text-shadow:0 0 10px #0f0; margin-bottom:4px;">
+            <h2 style="color:#FF6A39; font-family:'Sterling','Segoe UI',sans-serif; text-shadow:0 0 10px rgba(255,106,57,0.3); margin-bottom:4px;">
                 KALKULATOR ENERGII
             </h2>
-            <p style="color:#0a0; font-family:'Courier New',monospace; font-size:0.8rem; opacity:0.7; margin-bottom:24px;">
+            <p style="color:#BEBEBE; font-family:'Sterling','Segoe UI',sans-serif; font-size:0.8rem; opacity:0.7; margin-bottom:24px;">
                 [ AUTORYZACJA WYMAGANA ]
             </p>
         </div>
@@ -237,15 +237,62 @@ if not st.session_state['zalogowany']:
 # ============================================================
 st.markdown("""
 <style>
-/* Ciemny sidebar */
+/* Font Sterling */
+@font-face {
+    font-family: 'Sterling';
+    src: url('app/static/Sterling-Book.otf') format('opentype');
+    font-weight: 300;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Sterling';
+    src: url('app/static/Sterling-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Sterling';
+    src: url('app/static/Sterling-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+}
+
+/* Globalny font */
+html, body, [class*="css"], .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6,
+input, textarea, select, button, label {
+    font-family: 'Sterling', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+/* Kolory SUN HELP */
 [data-testid="stSidebar"] {
-    background-color: #003366;
+    background-color: #18332F;
 }
 [data-testid="stSidebar"] * {
     color: white !important;
 }
 [data-testid="stSidebar"] .stRadio label span {
     color: white !important;
+}
+
+/* Akcenty */
+.stButton > button[kind="primary"], .stDownloadButton > button {
+    background-color: #FF6A39 !important;
+    border-color: #FF6A39 !important;
+    color: white !important;
+}
+.stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover {
+    background-color: #e55a2b !important;
+    border-color: #e55a2b !important;
+}
+
+/* Nagłówki */
+h1, h2, h3 {
+    color: #18332F !important;
+}
+
+/* Metryki */
+[data-testid="stMetric"] {
+    border-left: 4px solid #FF6A39;
 }
 
 /* Mobile: lepsze metryki */
@@ -256,7 +303,7 @@ st.markdown("""
         border-radius: 8px;
         padding: 12px;
         margin-bottom: 8px;
-        border-left: 4px solid #003366;
+        border-left: 4px solid #FF6A39;
     }
     [data-testid="stMetric"] label {
         font-size: 0.85rem !important;
