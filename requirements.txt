@@ -2,6 +2,7 @@ streamlit
 openpyxl
 python-docx
 pandas
+numpy
 selenium
 webdriver-manager
 pdfplumber
