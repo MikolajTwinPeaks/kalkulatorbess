@@ -254,6 +254,11 @@ st.markdown(_font_css, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
+/* ============================================
+   SUN HELP Brand Design System
+   Based on Sunhelp_prezentacja_wzor_2026.pptx
+   ============================================ */
+
 /* Globalny font — wykluczamy ikony */
 html, body, [class*="css"], .stMarkdown, .stText, p, div, h1, h2, h3, h4, h5, h6,
 input, textarea, select, button, label, td, th, li, a {
@@ -266,18 +271,116 @@ span[data-baseweb], [data-testid="stExpanderToggleIcon"],
     font-family: inherit !important;
 }
 
-/* Kolory SUN HELP */
+/* ---------- SIDEBAR ---------- */
 [data-testid="stSidebar"] {
     background-color: #18332F;
 }
 [data-testid="stSidebar"] * {
-    color: white !important;
+    color: #F0EEEA !important;
 }
 [data-testid="stSidebar"] .stRadio label span {
-    color: white !important;
+    color: #F0EEEA !important;
+}
+[data-testid="stSidebar"] .stRadio label[data-checked="true"] span {
+    color: #FF6A39 !important;
+    font-weight: 500;
+}
+[data-testid="stSidebar"] hr {
+    border-color: rgba(240, 238, 234, 0.15) !important;
 }
 
-/* Akcenty */
+/* ---------- PAGE HEADERS ---------- */
+/* Ciemne nagłówki — styl prezentacji (tytuł na ciemnym tle) */
+h1 {
+    color: #F0EEEA !important;
+    background: #18332F;
+    padding: 20px 28px !important;
+    border-radius: 10px;
+    margin-bottom: 24px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.02em;
+    font-size: 1.8rem !important;
+}
+h2 {
+    color: #18332F !important;
+    font-weight: 400 !important;
+    font-size: 1.35rem !important;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #FF6A39;
+    margin-top: 20px !important;
+    margin-bottom: 16px !important;
+}
+h3 {
+    color: #18332F !important;
+    font-weight: 500 !important;
+    font-size: 1.1rem !important;
+}
+h4 {
+    color: #18332F !important;
+    font-weight: 500 !important;
+    font-size: 1rem !important;
+}
+
+/* ---------- METRICS — card style ---------- */
+[data-testid="stMetric"] {
+    background: #ffffff;
+    border: 1px solid #e8e6e2;
+    border-left: 4px solid #FF6A39;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 4px rgba(24, 51, 47, 0.06);
+    transition: box-shadow 0.2s ease;
+}
+[data-testid="stMetric"]:hover {
+    box-shadow: 0 3px 12px rgba(24, 51, 47, 0.1);
+}
+[data-testid="stMetric"] label {
+    color: #AEB0B1 !important;
+    font-weight: 500 !important;
+    font-size: 0.8rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+[data-testid="stMetric"] [data-testid="stMetricValue"] {
+    color: #18332F !important;
+    font-weight: 400 !important;
+    font-size: 1.5rem !important;
+}
+[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+    color: #FF6A39 !important;
+}
+
+/* ---------- EXPANDERS ---------- */
+[data-testid="stExpander"] {
+    border: 1px solid #e8e6e2 !important;
+    border-radius: 10px !important;
+    margin-bottom: 12px !important;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(24, 51, 47, 0.04);
+}
+[data-testid="stExpander"] summary {
+    background: #f7f6f4 !important;
+    padding: 14px 20px !important;
+    font-weight: 500 !important;
+    color: #18332F !important;
+    transition: background 0.2s ease;
+}
+[data-testid="stExpander"] summary:hover {
+    background: #f0eeea !important;
+}
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    padding: 16px 20px !important;
+    border-top: 1px solid #e8e6e2;
+}
+
+/* ---------- BUTTONS ---------- */
+.stButton > button, .stDownloadButton > button {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    padding: 10px 24px !important;
+    transition: all 0.2s ease !important;
+    letter-spacing: 0.01em;
+}
 .stButton > button[kind="primary"], .stDownloadButton > button {
     background-color: #FF6A39 !important;
     border-color: #FF6A39 !important;
@@ -286,56 +389,116 @@ span[data-baseweb], [data-testid="stExpanderToggleIcon"],
 .stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover {
     background-color: #e55a2b !important;
     border-color: #e55a2b !important;
+    box-shadow: 0 4px 12px rgba(255, 106, 57, 0.3) !important;
+    transform: translateY(-1px);
 }
-
-/* Nagłówki */
-h1, h2, h3 {
+.stButton > button[kind="secondary"] {
+    background-color: transparent !important;
+    border: 1.5px solid #18332F !important;
     color: #18332F !important;
 }
-
-/* Metryki */
-[data-testid="stMetric"] {
-    border-left: 4px solid #FF6A39;
+.stButton > button[kind="secondary"]:hover {
+    background-color: #18332F !important;
+    color: #F0EEEA !important;
 }
 
-/* Mobile: lepsze metryki */
+/* ---------- TABS ---------- */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    border-bottom: 2px solid #e8e6e2;
+}
+.stTabs [data-baseweb="tab"] {
+    padding: 10px 24px !important;
+    font-weight: 500 !important;
+    color: #AEB0B1 !important;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+.stTabs [data-baseweb="tab"]:hover {
+    color: #18332F !important;
+}
+.stTabs [aria-selected="true"] {
+    color: #18332F !important;
+    border-bottom-color: #FF6A39 !important;
+}
+
+/* ---------- INPUTS ---------- */
+.stTextInput input, .stNumberInput input, .stSelectbox [data-baseweb="select"],
+.stTextArea textarea {
+    border-radius: 8px !important;
+    border-color: #e8e6e2 !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
+    border-color: #FF6A39 !important;
+    box-shadow: 0 0 0 2px rgba(255, 106, 57, 0.15) !important;
+}
+
+/* ---------- DATAFRAME ---------- */
+[data-testid="stDataFrame"] {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e8e6e2;
+}
+
+/* ---------- ALERTS ---------- */
+.stAlert [data-testid="stNotificationContentInfo"] {
+    border-left-color: #18332F !important;
+}
+.stAlert [data-testid="stNotificationContentSuccess"] {
+    border-left-color: #2ecc71 !important;
+}
+.stAlert [data-testid="stNotificationContentWarning"] {
+    border-left-color: #FF6A39 !important;
+}
+
+/* ---------- DIVIDER ---------- */
+hr {
+    border-color: #e8e6e2 !important;
+    margin: 20px 0 !important;
+}
+
+/* ---------- BAR CHARTS ---------- */
+.stBarChart, .stLineChart {
+    border-radius: 10px;
+    overflow: hidden;
+    padding: 8px 0;
+}
+
+/* ---------- MOBILE RESPONSIVE ---------- */
 @media (max-width: 768px) {
-    /* Metryki w jednej kolumnie */
+    h1 {
+        padding: 14px 18px !important;
+        font-size: 1.4rem !important;
+    }
     [data-testid="stMetric"] {
-        background-color: #f8f9fa;
-        border-radius: 8px;
-        padding: 12px;
+        padding: 12px 14px;
         margin-bottom: 8px;
-        border-left: 4px solid #FF6A39;
     }
     [data-testid="stMetric"] label {
-        font-size: 0.85rem !important;
+        font-size: 0.75rem !important;
     }
     [data-testid="stMetric"] [data-testid="stMetricValue"] {
         font-size: 1.2rem !important;
     }
-    /* Ekspandery - większy dotyk */
-    .streamlit-expanderHeader {
-        padding: 14px 8px !important;
-        font-size: 1rem !important;
+    [data-testid="stExpander"] summary {
+        padding: 12px 14px !important;
+        font-size: 0.95rem !important;
     }
-    /* Przyciski - pełna szerokość na mobile */
-    .stButton > button {
+    .stButton > button, .stDownloadButton > button {
         width: 100% !important;
         padding: 12px !important;
         font-size: 1rem !important;
     }
-    .stDownloadButton > button {
-        width: 100% !important;
-        padding: 12px !important;
-    }
-    /* Inputy - większy tekst */
     .stTextInput input, .stNumberInput input {
-        font-size: 16px !important;  /* zapobiega zoom na iOS */
+        font-size: 16px !important;
     }
-    /* Tabela - scroll horyzontalny */
     .stDataFrame {
         overflow-x: auto !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 12px !important;
+        font-size: 0.85rem !important;
     }
 }
 </style>
@@ -375,27 +538,45 @@ with open(_logo_path, 'r') as _f:
     _svg = _f.read()
 _b64 = base64.b64encode(_svg.encode()).decode()
 st.sidebar.markdown(
-    f'<div style="text-align:center;padding:10px 0 20px 0;">'
-    f'<img src="data:image/svg+xml;base64,{_b64}" width="180">'
+    f'<div style="text-align:center;padding:18px 0 8px 0;">'
+    f'<img src="data:image/svg+xml;base64,{_b64}" width="160">'
     f'</div>',
     unsafe_allow_html=True,
 )
 
-st.sidebar.title('Kalkulator Ofertowy')
+st.sidebar.markdown(
+    '<p style="text-align:center;color:#AEB0B1 !important;font-size:0.7rem;'
+    'letter-spacing:0.12em;text-transform:uppercase;margin:0 0 16px 0;">'
+    'Kalkulator Ofertowy</p>',
+    unsafe_allow_html=True,
+)
 
-# Zalogowany user info + wyloguj
-_username = st.session_state.get('username', '')
-st.sidebar.markdown(f'Zalogowano: **{_username}** ({_rola})')
-if st.sidebar.button('Wyloguj'):
-    for key in ['zalogowany', 'username', 'rola']:
-        st.session_state.pop(key, None)
-    st.rerun()
+st.sidebar.markdown('---')
 
 page = st.sidebar.radio('Nawigacja', PAGES)
 
+st.sidebar.markdown('---')
+
 # Demo button
-if st.sidebar.button('Załaduj dane DEMO'):
+if st.sidebar.button('Załaduj dane DEMO', use_container_width=True):
     st.session_state['demo'] = True
+    st.rerun()
+
+# Zalogowany user info + wyloguj
+_username = st.session_state.get('username', '')
+st.sidebar.markdown(
+    f'<div style="margin-top:16px;padding:12px 16px;background:rgba(255,255,255,0.06);'
+    f'border-radius:8px;">'
+    f'<span style="color:#AEB0B1 !important;font-size:0.7rem;text-transform:uppercase;'
+    f'letter-spacing:0.05em;">Zalogowano jako</span><br>'
+    f'<span style="color:#F0EEEA !important;font-weight:500;">{_username}</span>'
+    f'<span style="color:#AEB0B1 !important;font-size:0.8rem;"> &middot; {_rola}</span>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
+if st.sidebar.button('Wyloguj', use_container_width=True):
+    for key in ['zalogowany', 'username', 'rola']:
+        st.session_state.pop(key, None)
     st.rerun()
 
 
@@ -490,7 +671,7 @@ def _dane_ready() -> bool:
 # PAGE 1: DANE KLIENTA
 # ============================================================
 def page_dane_klienta():
-    st.header('Dane klienta')
+    st.markdown('<h1>Dane klienta</h1>', unsafe_allow_html=True)
 
     with st.expander('Firma', expanded=True):
         st.text_input('Nazwa firmy', key='nazwa_firmy')
@@ -581,7 +762,7 @@ def page_dane_klienta():
 # PAGE 2: ANALIZA & REKOMENDACJE
 # ============================================================
 def page_analiza():
-    st.header('Analiza & Rekomendacje')
+    st.markdown('<h1>Analiza & Rekomendacje</h1>', unsafe_allow_html=True)
 
     if not _dane_ready():
         st.warning('Najpierw uzupełnij dane klienta.')
@@ -595,6 +776,12 @@ def page_analiza():
     rek_bess = oblicz_rekomendacje_bess(dane)
     rek_dsr = oblicz_rekomendacje_dsr(dane)
     rek_kmb = oblicz_rekomendacje_kmb(dane)
+
+    st.markdown(
+        '<p style="color:#AEB0B1;font-size:0.85rem;margin-bottom:20px;">'
+        'Wyniki analizy na podstawie wprowadzonych danych klienta</p>',
+        unsafe_allow_html=True,
+    )
 
     # Łączny CAPEX / oszczędność
     capex_items = [('BESS', rek_bess.capex_pln)]
@@ -707,7 +894,7 @@ def page_analiza():
 # PAGE 3: FINANSOWANIE
 # ============================================================
 def page_finansowanie():
-    st.header('Opcje finansowania')
+    st.markdown('<h1>Opcje finansowania</h1>', unsafe_allow_html=True)
 
     if not st.session_state.get('obliczenia_done'):
         st.warning('Najpierw przejdź do "Analiza & Rekomendacje" aby obliczyć CAPEX.')
@@ -760,7 +947,7 @@ def page_finansowanie():
 # PAGE 4: GENERUJ OFERTĘ
 # ============================================================
 def page_generuj():
-    st.header('Generuj ofertę')
+    st.markdown('<h1>Generuj ofertę</h1>', unsafe_allow_html=True)
 
     if not _dane_ready():
         st.warning('Najpierw uzupełnij dane klienta.')
@@ -769,60 +956,81 @@ def page_generuj():
     dane = _get_dane()
     nazwa = dane.nazwa_firmy.replace(' ', '_')[:30]
 
-    st.subheader('Pobierz dokumenty')
+    st.markdown(
+        '<p style="color:#AEB0B1;font-size:0.85rem;margin-bottom:24px;">'
+        'Wygeneruj i pobierz dokumenty ofertowe dla klienta</p>',
+        unsafe_allow_html=True,
+    )
 
-    # Oferta XLSX
-    st.markdown('#### Oferta XLSX')
-    st.caption('Pełna oferta z 7 arkuszami: podsumowanie, ee, BESS, PV/DSR/KMB, finansowanie, analiza 10-letnia, korzyści.')
-    if st.button('Generuj ofertę XLSX', use_container_width=True):
-        with st.spinner('Generowanie oferty...'):
-            data = generuj_oferte_bytes(dane)
-        st.download_button(
-            label='Pobierz ofertę XLSX',
-            data=data,
-            file_name=f'Oferta_{nazwa}.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            use_container_width=True,
+    # --- 3-column document cards ---
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown(
+            '<div style="text-align:center;margin-bottom:8px;">'
+            '<span style="font-size:2.8rem;font-weight:300;color:#18332F;">01</span></div>'
+            '<p style="text-align:center;font-weight:500;color:#18332F;margin:4px 0;">Oferta XLSX</p>'
+            '<p style="text-align:center;color:#AEB0B1;font-size:0.78rem;">'
+            '7 arkuszy: podsumowanie, EE, BESS, PV/DSR/KMB, finansowanie, analiza 10-letnia</p>',
+            unsafe_allow_html=True,
         )
+        if st.button('Generuj ofertę', use_container_width=True, key='gen_oferta'):
+            with st.spinner('Generowanie oferty...'):
+                data = generuj_oferte_bytes(dane)
+            st.download_button(
+                label='Pobierz XLSX',
+                data=data,
+                file_name=f'Oferta_{nazwa}.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                use_container_width=True,
+            )
 
-    st.divider()
-
-    # Raport DOCX
-    st.markdown('#### Raport DOCX')
-    st.caption('Raport analityczny: PV + BESS dla zakładów produkcyjnych. Regulacje, technologia, rynek.')
-    if st.button('Generuj raport DOCX', use_container_width=True):
-        with st.spinner('Generowanie raportu...'):
-            data = create_report_bytes()
-        st.download_button(
-            label='Pobierz raport DOCX',
-            data=data,
-            file_name='Raport_PV_BESS_Zaklady_Produkcyjne.docx',
-            mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            use_container_width=True,
+    with col2:
+        st.markdown(
+            '<div style="text-align:center;margin-bottom:8px;">'
+            '<span style="font-size:2.8rem;font-weight:300;color:#18332F;">02</span></div>'
+            '<p style="text-align:center;font-weight:500;color:#18332F;margin:4px 0;">Raport DOCX</p>'
+            '<p style="text-align:center;color:#AEB0B1;font-size:0.78rem;">'
+            'Raport analityczny: PV + BESS dla zakładów produkcyjnych</p>',
+            unsafe_allow_html=True,
         )
+        if st.button('Generuj raport', use_container_width=True, key='gen_raport'):
+            with st.spinner('Generowanie raportu...'):
+                data = create_report_bytes()
+            st.download_button(
+                label='Pobierz DOCX',
+                data=data,
+                file_name='Raport_PV_BESS_Zaklady_Produkcyjne.docx',
+                mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                use_container_width=True,
+            )
 
-    st.divider()
-
-    # Formularz klienta XLSX
-    st.markdown('#### Formularz klienta XLSX')
-    st.caption('Formularz zbierania danych od klienta z checklistą dokumentów i workflow.')
-    if st.button('Generuj formularz', use_container_width=True):
-        with st.spinner('Generowanie formularza...'):
-            data = create_intake_form_bytes()
-        st.download_button(
-            label='Pobierz formularz XLSX',
-            data=data,
-            file_name='Formularz_Dane_Klienta.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            use_container_width=True,
+    with col3:
+        st.markdown(
+            '<div style="text-align:center;margin-bottom:8px;">'
+            '<span style="font-size:2.8rem;font-weight:300;color:#18332F;">03</span></div>'
+            '<p style="text-align:center;font-weight:500;color:#18332F;margin:4px 0;">Formularz XLSX</p>'
+            '<p style="text-align:center;color:#AEB0B1;font-size:0.78rem;">'
+            'Formularz zbierania danych od klienta z checklistą dokumentów</p>',
+            unsafe_allow_html=True,
         )
+        if st.button('Generuj formularz', use_container_width=True, key='gen_form'):
+            with st.spinner('Generowanie formularza...'):
+                data = create_intake_form_bytes()
+            st.download_button(
+                label='Pobierz XLSX',
+                data=data,
+                file_name='Formularz_Dane_Klienta.xlsx',
+                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                use_container_width=True,
+            )
 
 
 # ============================================================
 # PAGE 5: BAZA CEN
 # ============================================================
 def page_baza_cen():
-    st.header('Baza cen TGE RDB')
+    st.markdown('<h1>Baza cen TGE RDB</h1>', unsafe_allow_html=True)
 
     db = BazaCen()
 

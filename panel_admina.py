@@ -14,7 +14,7 @@ from config import ConfigManager
 
 
 def page_panel_admina():
-    st.header('Panel administracyjny')
+    st.markdown('<h1>Panel administracyjny</h1>', unsafe_allow_html=True)
 
     tab_users, tab_config = st.tabs(['Zarządzanie użytkownikami', 'Konfiguracja parametrów'])
 
