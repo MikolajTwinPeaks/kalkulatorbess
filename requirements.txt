@@ -7,3 +7,4 @@ webdriver-manager
 pdfplumber
 pytesseract
 pdf2image
+xlrd

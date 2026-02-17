@@ -27,6 +27,7 @@ from baza_cen import BazaCen
 from auth import AuthManager
 from panel_admina import page_panel_admina
 from analiza_faktury import parsuj_fakture, analizuj_fakture, mapuj_na_dane_klienta
+from analiza_profilu import parsuj_profil_mocy, analiza_profilu, mapuj_profil_na_dane
 from fonty_b64 import STERLING_BOOK, STERLING_REGULAR, STERLING_MEDIUM
 
 # ============================================================
@@ -787,6 +788,104 @@ def page_dane_klienta():
                     'Nie jest zapisywany na dysku ani przesyłany do zewnętrznych serwisów.'
                 )
 
+    # --- Profil mocy godzinowej (XLS/XLSX) — tylko admin/handlowiec ---
+    if _rola in ('admin', 'handlowiec'):
+        with st.expander('Profil mocy godzinowej (XLS/XLSX)'):
+            uploaded_xls = st.file_uploader(
+                'Wgraj plik z mocami godzinowymi (SKADEN)',
+                type=['xls', 'xlsx'],
+                key='profil_mocy_xls',
+            )
+            if uploaded_xls is not None:
+                xls_bytes = uploaded_xls.read()
+                with st.spinner('Parsuję profil mocy...'):
+                    try:
+                        profil = parsuj_profil_mocy(xls_bytes, uploaded_xls.name)
+                        wynik_analizy = analiza_profilu(profil)
+                    except Exception as e:
+                        st.error(f'Błąd parsowania: {e}')
+                        profil = None
+                        wynik_analizy = None
+                del xls_bytes
+
+                if profil is not None and wynik_analizy is not None:
+                    # Zapisz do session_state
+                    st.session_state['profil_godzinowy'] = profil.dane
+                    st.session_state['profil_wynik_analizy'] = wynik_analizy
+                    st.session_state['profil_obiekt'] = profil
+
+                    # Metryki
+                    st.markdown('#### Statystyki profilu')
+                    stats = wynik_analizy['statystyki']
+                    c1, c2 = st.columns(2)
+                    c1.metric('P max', f'{stats["p_max_kw"]:,.0f} kW')
+                    c2.metric('P średnia', f'{stats["p_srednia_kw"]:,.0f} kW')
+                    c1, c2 = st.columns(2)
+                    c1.metric('Zużycie roczne', f'{stats["zuzycie_roczne_kwh"]:,.0f} kWh')
+                    c2.metric('Load factor', f'{stats["load_factor"]:.1%}')
+
+                    if profil.taryfa:
+                        st.markdown(f'**Taryfa:** {profil.taryfa}')
+                    if profil.firma:
+                        st.markdown(f'**Firma:** {profil.firma}')
+
+                    # Profil dobowy
+                    st.markdown('#### Średni profil dobowy (kW)')
+                    pd_dobowy = wynik_analizy['profil_dobowy']
+                    df_dobowy = pd.DataFrame({
+                        'Godzina': list(pd_dobowy.keys()),
+                        'kW': list(pd_dobowy.values()),
+                    })
+                    st.bar_chart(df_dobowy.set_index('Godzina'))
+
+                    # Profil miesięczny
+                    st.markdown('#### Zużycie miesięczne (kWh)')
+                    pd_mies = wynik_analizy['profil_miesieczny']
+                    nazwy_mies = {
+                        1: 'Sty', 2: 'Lut', 3: 'Mar', 4: 'Kwi', 5: 'Maj', 6: 'Cze',
+                        7: 'Lip', 8: 'Sie', 9: 'Wrz', 10: 'Paź', 11: 'Lis', 12: 'Gru',
+                    }
+                    df_mies = pd.DataFrame({
+                        'Miesiąc': [nazwy_mies.get(k, k) for k in pd_mies.keys()],
+                        'kWh': list(pd_mies.values()),
+                    })
+                    st.bar_chart(df_mies.set_index('Miesiąc'))
+
+                    # Rozkład strefowy
+                    st.markdown('#### Rozkład strefowy')
+                    rs = wynik_analizy['rozklad_strefowy']
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric('Szczyt', f'{rs["szczyt_pct"]:.1f}%')
+                    c2.metric('Pozaszczyt', f'{rs["pozaszczyt_pct"]:.1f}%')
+                    c3.metric('Noc', f'{rs["noc_pct"]:.1f}%')
+
+                    # Top 10 szczytów
+                    st.markdown('#### Top 10 szczytów')
+                    st.dataframe(
+                        wynik_analizy['top_szczyty'].rename(
+                            columns={'datetime': 'Data/godzina', 'moc_kw': 'Moc (kW)'}
+                        ),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    # Przycisk wypełnienia formularza
+                    if st.button(
+                        'Wypełnij formularz danymi z profilu',
+                        type='primary',
+                        use_container_width=True,
+                        key='btn_wypelnij_profil',
+                    ):
+                        mapped = mapuj_profil_na_dane(profil, wynik_analizy)
+                        for k, v in mapped.items():
+                            st.session_state[k] = v
+                        st.rerun()
+
+                    st.caption(
+                        'Plik XLS przetworzony wyłącznie w pamięci RAM. '
+                        'Nie jest zapisywany na dysku.'
+                    )
+
     with st.expander('Firma', expanded=True):
         st.text_input('Nazwa firmy', key='nazwa_firmy')
         st.text_input('NIP', key='nip')
@@ -997,6 +1096,59 @@ def page_analiza():
             st.info('Kompensacja mocy biernej już zainstalowana.')
         else:
             st.info('cos(φ) >= 0.95 – kompensacja nie jest potrzebna.')
+
+    # --- Analiza profilu mocy (jeśli wgrany) ---
+    if 'profil_godzinowy' in st.session_state and 'profil_wynik_analizy' in st.session_state:
+        with st.expander('Analiza profilu mocy godzinowej'):
+            wa = st.session_state['profil_wynik_analizy']
+
+            # Heatmapa
+            st.markdown('#### Heatmapa zużycia (dzień tygodnia x godzina)')
+            heatmapa = wa.get('heatmapa')
+            if heatmapa is not None:
+                st.dataframe(
+                    heatmapa.style.background_gradient(cmap='YlOrRd', axis=None).format('{:.0f}'),
+                    use_container_width=True,
+                )
+
+            # Rekomendacja mocy umownej
+            st.markdown('#### Rekomendacja mocy umownej')
+            rek_mu = wa['rekomendacja_moc_umowna']
+            obecna_mu = dane.moc_umowna_kw
+            c1, c2, c3 = st.columns(3)
+            c1.metric('P max (profil)', f'{rek_mu["p_max_kw"]:,.0f} kW')
+            c2.metric('Percentyl 99.5%', f'{rek_mu["percentyl_995_kw"]:,.0f} kW')
+            c3.metric('Rekomendacja', f'{rek_mu["rekomendacja_kw"]:,.0f} kW')
+
+            if obecna_mu > 0:
+                roznica = obecna_mu - rek_mu['rekomendacja_kw']
+                if roznica > 10:
+                    st.warning(
+                        f'Obecna moc umowna ({obecna_mu:.0f} kW) jest o {roznica:.0f} kW wyższa '
+                        f'niż rekomendowana ({rek_mu["rekomendacja_kw"]:.0f} kW). '
+                        f'Możliwa oszczędność na opłacie za moc umowną.'
+                    )
+                elif roznica < -10:
+                    st.warning(
+                        f'Obecna moc umowna ({obecna_mu:.0f} kW) jest niższa niż rekomendowana '
+                        f'({rek_mu["rekomendacja_kw"]:.0f} kW). Ryzyko przekroczenia mocy umownej.'
+                    )
+                else:
+                    st.success('Moc umowna jest dobrze dopasowana do profilu zużycia.')
+
+            # Kategoria mocowa
+            st.markdown('#### Kategoria mocowa (z profilu)')
+            km = wa['kategoria_mocowa']
+            st.metric(
+                'Zużycie w szczycie systemowym (XI-III, 17-19, Pn-Pt)',
+                f'{km["zuzycie_szczyt_systemowy_kwh"]:,.0f} kWh',
+            )
+            st.metric('Obliczona kategoria', km['kategoria'])
+
+            st.info(
+                'Kalkulacje BESS/PV mogą uwzględniać rzeczywisty profil mocy '
+                '(rozszerzenie w przyszłej wersji).'
+            )
 
     # Zapisz wyniki do session_state
     st.session_state['obliczenia_done'] = True
