@@ -35,6 +35,201 @@ st.set_page_config(
 )
 
 # ============================================================
+# LOGIN PAGE
+# ============================================================
+LOGIN = 'admin'
+HASLO = 'admin'
+
+if 'zalogowany' not in st.session_state:
+    st.session_state['zalogowany'] = False
+
+if not st.session_state['zalogowany']:
+    # Ukryj sidebar na stronie logowania
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] { display: none; }
+    .stApp > header { display: none; }
+    .block-container { padding-top: 0 !important; max-width: 100% !important; }
+    .stApp {
+        background: #000 !important;
+        overflow: hidden;
+    }
+
+    /* Matrix canvas */
+    #matrix-bg {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        z-index: 0;
+    }
+
+    /* Login box */
+    .login-box {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+        background: rgba(0, 10, 0, 0.85);
+        border: 1px solid #0f0;
+        border-radius: 12px;
+        padding: 40px 36px 32px 36px;
+        width: 360px;
+        box-shadow: 0 0 40px rgba(0, 255, 0, 0.15), 0 0 80px rgba(0, 255, 0, 0.05);
+        text-align: center;
+    }
+    .login-box h2 {
+        color: #0f0;
+        font-family: 'Courier New', monospace;
+        margin-bottom: 8px;
+        font-size: 1.6rem;
+        text-shadow: 0 0 10px #0f0;
+    }
+    .login-box .subtitle {
+        color: #0a0;
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        margin-bottom: 24px;
+        opacity: 0.7;
+    }
+
+    /* Streamlit inputs styling for login */
+    .login-container input {
+        background: rgba(0, 20, 0, 0.9) !important;
+        border: 1px solid #0a0 !important;
+        color: #0f0 !important;
+        font-family: 'Courier New', monospace !important;
+    }
+    .login-container input:focus {
+        border-color: #0f0 !important;
+        box-shadow: 0 0 8px rgba(0, 255, 0, 0.3) !important;
+    }
+    .login-container label {
+        color: #0a0 !important;
+        font-family: 'Courier New', monospace !important;
+    }
+    .login-container button {
+        background-color: #0a0 !important;
+        color: #000 !important;
+        font-family: 'Courier New', monospace !important;
+        font-weight: bold !important;
+        border: none !important;
+        width: 100% !important;
+    }
+    .login-container button:hover {
+        background-color: #0f0 !important;
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.5) !important;
+    }
+    .login-container .stAlert {
+        background: rgba(255, 0, 0, 0.15) !important;
+        border-color: #f00 !important;
+    }
+    .login-container .stAlert p { color: #f66 !important; }
+    </style>
+
+    <canvas id="matrix-bg"></canvas>
+
+    <script>
+    // Matrix rain animation
+    (function() {
+        const canvas = document.getElementById('matrix-bg');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        const fontSize = 16;
+        const cols = Math.floor(canvas.width / fontSize);
+
+        // Each column: position, speed, direction
+        const columns = [];
+        for (let i = 0; i < cols; i++) {
+            columns.push({
+                y: Math.random() * canvas.height,
+                speed: 0.5 + Math.random() * 2.5,
+                dir: Math.random() > 0.35 ? 1 : -1  // 65% down, 35% up
+            });
+        }
+
+        const chars = '0123456789';
+
+        function draw() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.font = fontSize + 'px Courier New';
+
+            for (let i = 0; i < cols; i++) {
+                const col = columns[i];
+                const ch = chars[Math.floor(Math.random() * chars.length)];
+
+                // Head character — bright green
+                const brightness = 180 + Math.floor(Math.random() * 75);
+                ctx.fillStyle = 'rgb(0, ' + brightness + ', 0)';
+
+                // Occasional bright flash
+                if (Math.random() > 0.97) {
+                    ctx.fillStyle = '#fff';
+                }
+
+                const x = i * fontSize;
+                ctx.fillText(ch, x, col.y);
+
+                // Move
+                col.y += col.dir * col.speed * fontSize * 0.5;
+
+                // Wrap around
+                if (col.dir > 0 && col.y > canvas.height + fontSize) {
+                    col.y = -fontSize;
+                    col.speed = 0.5 + Math.random() * 2.5;
+                } else if (col.dir < 0 && col.y < -fontSize) {
+                    col.y = canvas.height + fontSize;
+                    col.speed = 0.5 + Math.random() * 2.5;
+                }
+
+                // Rare direction change
+                if (Math.random() > 0.998) {
+                    col.dir *= -1;
+                }
+            }
+            requestAnimationFrame(draw);
+        }
+        draw();
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
+    # Login form (Streamlit widgets over the Matrix background)
+    st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    col_l, col_c, col_r = st.columns([1, 1.5, 1])
+    with col_c:
+        st.markdown("""
+        <div style="text-align:center; margin-top: 28vh;">
+            <h2 style="color:#0f0; font-family:'Courier New',monospace; text-shadow:0 0 10px #0f0; margin-bottom:4px;">
+                KALKULATOR ENERGII
+            </h2>
+            <p style="color:#0a0; font-family:'Courier New',monospace; font-size:0.8rem; opacity:0.7; margin-bottom:24px;">
+                [ AUTORYZACJA WYMAGANA ]
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        login_input = st.text_input('Login', key='login_input', placeholder='login')
+        haslo_input = st.text_input('Password', type='password', key='haslo_input', placeholder='password')
+        if st.button('ZALOGUJ', use_container_width=True):
+            if login_input == LOGIN and haslo_input == HASLO:
+                st.session_state['zalogowany'] = True
+                st.rerun()
+            else:
+                st.error('Nieprawidlowy login lub haslo.')
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.stop()
+
+# ============================================================
 # RESPONSIVE CSS
 # ============================================================
 st.markdown("""
