@@ -1179,47 +1179,55 @@ def page_baza_cen():
     with tab4:
         st.subheader('Import danych')
 
-        # Ręczny scraping
-        st.markdown('#### Scraping z TGE')
-        st.caption(
-            'Uruchom scraper, aby pobrać najnowsze ceny z TGE RDB. '
-            'Wymaga zainstalowanego Chrome i selenium.'
-        )
-        scrape_date = st.date_input('Data sesji', value=datetime.now().date(),
-                                    key='scrape_date')
-        if st.button('Uruchom scraper', use_container_width=True):
-            with st.spinner('Pobieram ceny z TGE...'):
-                try:
-                    from scraper_tge import ScraperTGE
-                    with ScraperTGE(headless=True) as scraper:
-                        ceny = scraper.pobierz_ceny_rdb(scrape_date.strftime('%Y-%m-%d'))
+        # Wykryj Streamlit Cloud (brak Chrome/Selenium)
+        _is_cloud = os.environ.get('STREAMLIT_SHARING_MODE') or os.path.exists('/home/appuser')
 
-                    if ceny:
-                        rekordy = [{
-                            'timestamp_start': c.timestamp_start,
-                            'timestamp_end': c.timestamp_end,
-                            'cena_pln_mwh': c.cena_pln_mwh,
-                            'wolumen': c.wolumen_mwh,
-                            'rynek': 'RDB',
-                            'waluta': 'PLN',
-                            'zrodlo': 'TGE_scraper',
-                        } for c in ceny]
-                        n = db.zapisz_ceny(rekordy)
-                        db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
-                                      n, 'OK', f'Scraping z UI: {n} rekordów')
-                        st.success(f'Pobrano i zapisano {n} rekordów cenowych.')
-                    else:
-                        db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
-                                      0, 'EMPTY', 'Scraping z UI: brak danych')
-                        st.warning('Scraper nie znalazł danych cenowych na stronie TGE.')
-                except ImportError:
-                    st.error('Brak modułu selenium. Zainstaluj: pip install selenium webdriver-manager')
-                except Exception as e:
-                    db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
-                                  0, 'ERROR', str(e))
-                    st.error(f'Błąd scrapera: {e}')
+        # Ręczny scraping — tylko lokalnie
+        if not _is_cloud:
+            st.markdown('#### Scraping z TGE')
+            st.caption(
+                'Uruchom scraper, aby pobrać najnowsze ceny z TGE RDB. '
+                'Wymaga zainstalowanego Chrome i selenium.'
+            )
+            scrape_date = st.date_input('Data sesji', value=datetime.now().date(),
+                                        key='scrape_date')
+            if st.button('Uruchom scraper', use_container_width=True):
+                with st.spinner('Pobieram ceny z TGE...'):
+                    try:
+                        from scraper_tge import ScraperTGE
+                        with ScraperTGE(headless=True) as scraper:
+                            ceny = scraper.pobierz_ceny_rdb(scrape_date.strftime('%Y-%m-%d'))
 
-        st.divider()
+                        if ceny:
+                            rekordy = [{
+                                'timestamp_start': c.timestamp_start,
+                                'timestamp_end': c.timestamp_end,
+                                'cena_pln_mwh': c.cena_pln_mwh,
+                                'wolumen': c.wolumen_mwh,
+                                'rynek': 'RDB',
+                                'waluta': 'PLN',
+                                'zrodlo': 'TGE_scraper',
+                            } for c in ceny]
+                            n = db.zapisz_ceny(rekordy)
+                            db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
+                                          n, 'OK', f'Scraping z UI: {n} rekordów')
+                            st.success(f'Pobrano i zapisano {n} rekordów cenowych.')
+                        else:
+                            db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
+                                          0, 'EMPTY', 'Scraping z UI: brak danych')
+                            st.warning('Scraper nie znalazł danych cenowych na stronie TGE.')
+                    except ImportError:
+                        st.error('Brak modułu selenium. Zainstaluj: pip install selenium webdriver-manager')
+                    except Exception as e:
+                        db.zapisz_log('RDB', scrape_date.strftime('%Y-%m-%d'),
+                                      0, 'ERROR', str(e))
+                        st.error(f'Błąd scrapera: {e}')
+            st.divider()
+        else:
+            st.info(
+                'Scraping TGE jest niedostępny w wersji Cloud (brak Chrome). '
+                'Użyj importu z pliku CSV/XLSX lub synchronizuj bazę lokalnie.'
+            )
 
         # Upload pliku
         st.markdown('#### Import z pliku CSV / XLSX')
