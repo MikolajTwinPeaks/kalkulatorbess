@@ -26,6 +26,7 @@ from generuj_formularz_klienta import create_intake_form_bytes
 from baza_cen import BazaCen
 from auth import AuthManager
 from panel_admina import page_panel_admina
+from analiza_faktury import parsuj_fakture, analizuj_fakture, mapuj_na_dane_klienta
 from fonty_b64 import STERLING_BOOK, STERLING_REGULAR, STERLING_MEDIUM
 
 # ============================================================
@@ -712,6 +713,79 @@ def _dane_ready() -> bool:
 # ============================================================
 def page_dane_klienta():
     st.markdown('<h1>Dane klienta</h1>', unsafe_allow_html=True)
+
+    # --- Analiza rachunku za energię (PDF) — tylko admin/handlowiec ---
+    if _rola in ('admin', 'handlowiec'):
+        with st.expander('Analiza rachunku za energię (PDF)'):
+            uploaded_pdf = st.file_uploader(
+                'Wybierz fakturę PDF', type=['pdf'], key='faktura_pdf',
+            )
+            if uploaded_pdf is not None:
+                pdf_bytes = uploaded_pdf.read()
+                with st.spinner('Analizuję fakturę...'):
+                    dane_faktury = parsuj_fakture(pdf_bytes)
+                del pdf_bytes  # zwolnij pamięć
+
+                # --- Odczytane dane ---
+                st.markdown('#### Odczytane dane')
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f'**Taryfa:** {dane_faktury.taryfa or "—"}')
+                    st.markdown(f'**OSD:** {dane_faktury.osd or "—"}')
+                    st.markdown(f'**Moc umowna:** {dane_faktury.moc_umowna_kw:.0f} kW' if dane_faktury.moc_umowna_kw > 0 else '**Moc umowna:** —')
+                    st.markdown(f'**PPE:** {dane_faktury.ppe or "—"}')
+                    st.markdown(f'**Nr faktury:** {dane_faktury.nr_faktury or "—"}')
+                with col2:
+                    st.markdown(f'**Zużycie:** {dane_faktury.zuzycie_calkowite_kwh:,.0f} kWh' if dane_faktury.zuzycie_calkowite_kwh > 0 else '**Zużycie:** —')
+                    st.markdown(f'**Cena energii:** {dane_faktury.cena_energii_pln_kwh:.4f} PLN/kWh' if dane_faktury.cena_energii_pln_kwh > 0 else '**Cena energii:** —')
+                    st.markdown(f'**Kwota netto:** {dane_faktury.kwota_netto_pln:,.2f} PLN' if dane_faktury.kwota_netto_pln > 0 else '**Kwota netto:** —')
+                    st.markdown(f'**Typ:** {dane_faktury.typ_faktury}')
+                    st.markdown(f'**Okres:** {dane_faktury.okres_od} – {dane_faktury.okres_do}' if dane_faktury.okres_od else '**Okres:** —')
+
+                # Wskaźnik pewności
+                if dane_faktury.pewnosc < 0.30:
+                    st.warning(f'Pewność parsowania: {dane_faktury.pewnosc:.0%} — mało danych udało się odczytać. Sprawdź czy PDF zawiera tekst (skany nie są obsługiwane).')
+                else:
+                    st.success(f'Pewność parsowania: {dane_faktury.pewnosc:.0%}')
+
+                # Przycisk wypełnienia formularza
+                if st.button('Wypełnij formularz danymi z faktury', type='primary', use_container_width=True):
+                    mapped = mapuj_na_dane_klienta(dane_faktury)
+                    for k, v in mapped.items():
+                        st.session_state[k] = v
+                    st.rerun()
+
+                # --- Analiza optymalizacji ---
+                st.markdown('---')
+                st.markdown('#### Analiza optymalizacji (bezkosztowa)')
+                analiza = analizuj_fakture(dane_faktury)
+
+                if analiza.rekomendacje:
+                    for rek in analiza.rekomendacje:
+                        ikona = '🔴' if rek.priorytet == 'wysoki' else '🟡' if rek.priorytet == 'sredni' else '🟢'
+                        st.markdown(f'- {ikona} **{rek.tytul}** — szac. oszczędność: **{rek.oszczednosc_roczna_pln:,.0f} PLN/rok**')
+                        st.caption(rek.opis)
+                    st.metric(
+                        'Łączna potencjalna oszczędność',
+                        f'{analiza.laczna_oszczednosc_roczna_pln:,.0f} PLN/rok',
+                    )
+                else:
+                    st.info('Brak rekomendacji bezkosztowych — parametry faktury wyglądają optymalnie.')
+
+                # Sub-expandery ze szczegółami
+                with st.expander('Taryfa'):
+                    st.markdown(analiza.analiza_taryfy)
+                with st.expander('Moc umowna'):
+                    st.markdown(analiza.analiza_moc_umowna)
+                with st.expander('Moc bierna'):
+                    st.markdown(analiza.analiza_moc_bierna)
+                with st.expander('Opłata mocowa'):
+                    st.markdown(analiza.analiza_oplata_mocowa)
+
+                st.caption(
+                    'Plik PDF przetworzony wyłącznie w pamięci RAM. '
+                    'Nie jest zapisywany na dysku ani przesyłany do zewnętrznych serwisów.'
+                )
 
     with st.expander('Firma', expanded=True):
         st.text_input('Nazwa firmy', key='nazwa_firmy')

@@ -4,3 +4,4 @@ python-docx
 pandas
 selenium
 webdriver-manager
+pdfplumber
